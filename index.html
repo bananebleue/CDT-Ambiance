@@ -194,7 +194,7 @@ button { cursor: pointer; }
     </div>
 
     <div class="panel companion">
-      <h2>COMPAGNON FM-1 · EN PRÉPARATION</h2>
+      <h2>COMPAGNON FM&#8209;1 · EN PRÉPARATION</h2>
       <p>Pour la phase 0 : branche le FM-1 en USB-C, ouvre cette page dans Chrome, puis vérifie que le téléphone le voit. L'installation du firmware, la sauvegarde et la synchronisation de l'heure arriveront ici avec le firmware.</p>
       <button class="btn" id="midi" type="button" style="width: 100%"><span>Détecter le FM-1</span><small>Web MIDI · demande d'identité</small></button>
       <div class="log" id="midiLog" role="status">Aucun test lancé.</div>
@@ -774,29 +774,43 @@ function bindMidi() {
     catch (e) { write('Accès MIDI refusé (' + (e && e.name ? e.name : 'erreur') + '). Ouvre la page directement dans Chrome et autorise l’accès aux appareils MIDI.'); return; }
     const ins = [...access.inputs.values()], outs = [...access.outputs.values()];
     if (!ins.length && !outs.length) { write('Aucun appareil MIDI vu. Vérifie le câble USB-C (il doit transporter les données) et que le FM-1 est allumé.'); return; }
-    let text = 'Entrées : ' + (ins.map(p => p.name).join(', ') || 'aucune') + '\nSorties : ' + (outs.map(p => p.name).join(', ') || 'aucune') + '\n';
-    write(text + 'Demande d’identité envoyée…');
+    const text = 'Entrées : ' + (ins.map(p => p.name).join(', ') || 'aucune') + '\nSorties : ' + (outs.map(p => p.name).join(', ') || 'aucune') + '\n';
+    const wait = ms => new Promise(r => setTimeout(r, ms));
     const replies = [], idents = [];
+    let received = 0, sysexCount = 0;
     ins.forEach(p => { p.onmidimessage = m => {
+      received++;
       const d = [...m.data];
       if (d[0] !== 0xF0) return;
+      sysexCount++;
       replies.push(p.name + ' → ' + d.map(b => b.toString(16).padStart(2, '0')).join(' '));
       const id = fm1Identity(d);
       if (id) idents.push(id);
     }; });
-    outs.forEach(p => {
+    // Sous Android, les ports USB s'ouvrent lentement : on les ouvre d'abord, puis on attend.
+    write(text + 'Ouverture des ports…');
+    await Promise.all([...ins, ...outs].map(p => p.open().catch(() => null)));
+    await wait(600);
+    const ports = [...ins, ...outs].map(p => p.name + ' (' + (p.type === 'input' ? 'entrée' : 'sortie') + ') : ' + (p.connection === 'open' ? 'ouvert' : p.connection)).join('\n');
+    const ask = () => outs.forEach(p => {
       try {
-        p.send([0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7]);                    // demande d'identité MIDI standard
-        p.send([0xF0, 0x00, 0x32, 0x45, 0x00, 0x00, 0x00, 0x40, 0x7F, 0xF7]); // demande d'identité M-VAVE (lecture seule)
+        p.send([0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7]);                         // demande d'identité MIDI standard
+        p.send([0xF0, 0x00, 0x32, 0x45, 0x00, 0x00, 0x00, 0x40, 0x7F, 0xF7], performance.now() + 50); // demande M-VAVE (lecture seule)
       } catch (e) { /* port non disponible */ }
     });
-    setTimeout(() => {
-      ins.forEach(p => { p.onmidimessage = null; });
-      let out = text;
-      if (idents.length) out += 'Firmware identifié : ' + [...new Set(idents)].map(fwLabel).join(', ') + '\n';
-      out += replies.length ? 'Réponses brutes :\n' + replies.join('\n') : 'Aucune réponse aux demandes d’identité. Le FM-1 est bien vu si son nom apparaît ci-dessus ; c’est suffisant pour la phase 0.';
-      write(out);
-    }, 1500);
+    write(text + 'Demande d’identité envoyée…');
+    ask();
+    for (let i = 0; i < 30 && !idents.length; i++) {
+      await wait(100);
+      if (i === 15 && !idents.length) ask(); // second envoi après 1,5 s sans réponse
+    }
+    await wait(300);
+    ins.forEach(p => { p.onmidimessage = null; });
+    let out = text;
+    if (idents.length) out += 'Firmware identifié : ' + [...new Set(idents)].map(fwLabel).join(', ') + '\n';
+    out += replies.length ? 'Réponses brutes :\n' + replies.join('\n') + '\n' : 'Aucune réponse aux demandes d’identité.\n';
+    out += 'Diagnostic : ' + received + ' message(s) reçu(s), dont ' + sysexCount + ' SysEx.\n' + ports;
+    write(out);
   });
 }
 
