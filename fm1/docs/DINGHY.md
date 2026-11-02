@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/logo.svg" width="96" alt="Dinghy"></p>
+<!-- (le logo de Dinghy, propriété de designburg, n'est pas repris ici) -->
 
 # Dinghy
 
