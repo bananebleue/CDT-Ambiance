@@ -107,8 +107,8 @@ static void sn_rev_init(sn_rev_t *r, int32_t *mem, const int16_t *fb)
  * valeur qui ne s'éteint jamais (un fond de -40 dB) ; vers zéro, l'énergie ne peut que décroître */
 static inline int32_t sn_mq15(int32_t a, int32_t b)
 {
-    int32_t p = a * b;
-    return p >= 0 ? p >> 15 : -((-p) >> 15);
+    int64_t p = (int64_t)a * b;                    /* 64 bits : une boucle très chargée ne déborde pas */
+    return (int32_t)(p >= 0 ? p >> 15 : -((-p) >> 15));
 }
 
 static int32_t sn_rev_tick(sn_rev_t *r, int32_t x)  /* x déjà réduit (>> 4) pour rester loin des débordements */
@@ -387,7 +387,7 @@ static void sn_render(int32_t *out, uint32_t n)
                 v->lo += ((nz - v->lo) * SN_CLICK_LP_Q15) >> 15;
                 v->hp += ((nz - v->hp) * SN_CLICK_HP_Q15) >> 15;
                 bp = v->lo - v->hp;
-                y += (((bp * v->click_env) >> 15) * ((v->click_lvl * SN_VOICE_Q15) >> 15)) >> 13;
+                y += (int32_t)((((int64_t)bp * v->click_env >> 15) * ((v->click_lvl * SN_VOICE_Q15) >> 15)) >> 13);
                 v->click_env = (v->click_env * SN_CLICK_DECAY_Q15) >> 15;
                 if (v->click_env < 8) v->click_env = 0;
             }
@@ -405,8 +405,8 @@ static void sn_render(int32_t *out, uint32_t n)
             int32_t r1 = sn_rev_tick(&sn_rev_prev, send1 >> 4);
             r0 = (int32_t)(((int64_t)r0 * ty->wet_q15) >> 11);
             r1 = (int32_t)(((int64_t)r1 * ty->wet_q15) >> 11);
-            m = dry0 + ((r0 * sn_duck) >> 15);
-            p = dry1 + ((r1 * sn_duck) >> 15);
+            m = dry0 + (int32_t)(((int64_t)r0 * sn_duck) >> 15);
+            p = dry1 + (int32_t)(((int64_t)r1 * sn_duck) >> 15);
         }
         /* fondu d'entrée et coupure du son : seulement la voie principale */
         if (sn_fade_g < 65536) { sn_fade_g += sn_fade_step; if (sn_fade_g > 65536) sn_fade_g = 65536; }

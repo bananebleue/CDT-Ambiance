@@ -115,6 +115,27 @@ int main(int argc, char **argv)
     run_seconds(2.0, &st);
     check(st.phase == SN_READY, "arrêt : retour à Prêt");
 
+    {   /* endurance : tout au maximum, fin de course, pré-écoutes répétées, aucun saut brutal (débordement) */
+        sn_settings_t hard = {0, 0, 20, 100, 100, 2, 24};
+        uint32_t i0 = wav_n, i, k, big_jump = 0;
+        int32_t peak = 0;
+        sn_set(&hard);
+        sn_cmd(SN_CMD_LAUNCH, 0);
+        for (k = 0; k < 12u; k++) { run_seconds(2.0, &st); sn_cmd(SN_CMD_MUTE, 0); sn_cmd(SN_CMD_PREVIEW, 0); sn_cmd(SN_CMD_UNMUTE, 0); }
+        run_seconds(4.0, &st);
+        sn_cmd(SN_CMD_STOP, 0);
+        run_seconds(4.0, &st);
+        for (i = i0 + 1u; i < wav_n; i++) {
+            int32_t a = wav[2u * i], b = wav[2u * (i - 1u)], d = a > b ? a - b : b - a;
+            if (d > 30000) big_jump++;
+            if (a > peak) peak = a;
+            if (-a > peak) peak = -a;
+        }
+        printf("endurance : crête %d, sauts > 30000 : %u\n", peak, big_jump);
+        check(big_jump == 0, "endurance : aucun saut brutal (pas de débordement)");
+        check(st.phase == SN_READY, "endurance : arrêt propre");
+    }
+
     write_wav(argc > 1 ? argv[1] : "build/sonar_core.wav");
     printf("calcul : %.3f µs par échantillon sur cet ordinateur\n", cpu_s * 1e6 / wav_n);
     printf("%s\n", fails ? "DES VÉRIFICATIONS ONT ÉCHOUÉ" : "toutes les vérifications passent");
