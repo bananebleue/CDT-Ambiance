@@ -743,20 +743,24 @@ function frame(ts) {
 }
 
 /* ---------- Compagnon FM-1 : test Web MIDI ---------- */
-// Réponse M-VAVE : F0 00 32 45 … F7, charge utile en flux de bits 7 → 8, poids faible d'abord.
-// On décode depuis plusieurs décalages et on garde la chaîne lisible qui contient « FM ».
-function unpack7(bytes) {
-  const out = []; let buf = 0, n = 0;
-  for (const b of bytes) { buf |= (b & 0x7F) << n; n += 7; while (n >= 8) { out.push(buf & 0xFF); buf >>= 8; n -= 8; } }
-  return out;
+// Réponse M-VAVE : F0 00 32 45 … F7, charge utile en flux de 7 bits (poids faible d'abord).
+// Le nom (ex. « FM-1_015 ») n'est pas aligné sur un octet : on le cherche à chaque position de bit.
+function fwLabel(id) {
+  const m = id.match(/^FM-?1_0*(\d{1,3})$/);
+  return m ? id + ' (identifiant de la V' + m[1] + ' officielle de M-VAVE)' : id + ' (identifiant non officiel)';
 }
 function fm1Identity(d) {
   if (d.length < 12 || d[1] !== 0x00 || d[2] !== 0x32 || d[3] !== 0x45) return null;
-  const body = d.slice(4, -1);
-  for (let off = 0; off <= 10 && off < body.length; off++) {
-    const txt = unpack7(body.slice(off)).map(c => (c >= 0x20 && c < 0x7F ? String.fromCharCode(c) : '\u0000')).join('');
-    const m = txt.match(/FM-?1[\x20-\x7E]{0,16}/);
-    if (m) return m[0].trim();
+  const bits = [];
+  for (const b of d.slice(4, -1)) for (let i = 0; i < 7; i++) bits.push((b >> i) & 1);
+  for (let start = 0; start + 64 <= bits.length; start++) {
+    let txt = '';
+    for (let p = start; p + 8 <= bits.length; p += 8) {
+      let c = 0; for (let i = 0; i < 8; i++) c |= bits[p + i] << i;
+      txt += c >= 0x20 && c < 0x7F ? String.fromCharCode(c) : '\u0000';
+    }
+    const m = txt.match(/FM-?1[_\-][\x21-\x7E]{1,12}/);
+    if (m) return m[0];
   }
   return null;
 }
@@ -789,7 +793,7 @@ function bindMidi() {
     setTimeout(() => {
       ins.forEach(p => { p.onmidimessage = null; });
       let out = text;
-      if (idents.length) out += 'Firmware identifié : ' + [...new Set(idents)].join(', ') + '\n';
+      if (idents.length) out += 'Firmware identifié : ' + [...new Set(idents)].map(fwLabel).join(', ') + '\n';
       out += replies.length ? 'Réponses brutes :\n' + replies.join('\n') : 'Aucune réponse aux demandes d’identité. Le FM-1 est bien vu si son nom apparaît ci-dessus ; c’est suffisant pour la phase 0.';
       write(out);
     }, 1500);
