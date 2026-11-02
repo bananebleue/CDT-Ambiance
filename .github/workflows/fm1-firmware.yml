@@ -1,0 +1,95 @@
+# Spring's Sonar (fm1/) : compiler le firmware du M-VAVE FM-1 sur GitHub, lancer les bancs d'essai,
+# et, sur une étiquette fm1-vX.Y, publier le paquet. La chaîne de compilation JieLi vient de pkgman.jieliapp.com
+# (tools/get_toolchain.sh), trois fichiers du SDK AC79 de gitee.com, comme pour Dinghy, sloopDX et OberVave.
+name: fm1-firmware
+
+on:
+  push:
+    branches: ['firmware', 'main']
+    paths: ['fm1/**', '.github/workflows/fm1-firmware.yml']
+    tags: ['fm1-v*']
+  workflow_dispatch:
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: fm1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Paquets Python
+        run: python3 -m pip install Pillow
+
+      - name: Tables du sonar à jour
+        run: |
+          python3 tools/gen_sonar_tables.py
+          git diff --exit-code firmware/sonar/sonar_tables.h
+
+      - name: Bancs d'essai du sonar (sans matériel)
+        run: |
+          mkdir -p build/tests
+          cc -O2 -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Ifirmware/sonar -o build/tests/sonar_core_test tests/sonar_core_test.c
+          build/tests/sonar_core_test build/tests/sonar_core.wav
+          cc -O2 -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Ifirmware/sonar -o build/tests/sonar_ui_host tests/sonar_ui_host.c
+          build/tests/sonar_ui_host build/tests/ui tests/sonar_ui_script.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          for p in sorted(Path("build/tests").glob("ui-*.ppm")):
+              Image.open(p).resize((480, 480), Image.NEAREST).save(p.with_suffix(".png")); p.unlink()
+          PY
+
+      - name: Chaîne JieLi (pkgman.jieliapp.com)
+        run: sh tools/get_toolchain.sh
+
+      - name: SDK JieLi AC79 (trois de ses fichiers vont dans le paquet)
+        run: |
+          for i in 1 2 3; do
+            git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 \
+                https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git ~/fw-AC79_AIoT_SDK && break
+            rm -rf ~/fw-AC79_AIoT_SDK
+            sleep 20
+          done
+          test -d ~/fw-AC79_AIoT_SDK
+
+      - name: Compiler le firmware (FM-1)
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then
+            sh build.sh --release "${GITHUB_REF_NAME#fm1-v}"
+          else
+            sh build.sh
+          fi
+          ls -l build/*.fwsc
+          (cd build && sha256sum *.fwsc > SHA256SUMS)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spring-sonar-fwsc
+          path: |
+            fm1/build/*.fwsc
+            fm1/build/SHA256SUMS
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spring-sonar-bancs-essai
+          path: |
+            fm1/build/tests/*.png
+            fm1/build/tests/*.wav
+
+      - name: Publier (étiquettes fm1-v* seulement)
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            fm1/build/spring-sonar-*.fwsc
+            fm1/build/SHA256SUMS

@@ -1,0 +1,57 @@
+# Une partie accélérée, pour les captures d'écran du sonar (tests/sonar_ui_host.c)
+# molettes : 0 SELECT, 1 ALGORITHM, 2..5 molettes 1..4, 6 PRESETS ; boutons : 0 OCT-, 1 OCT+, 9 SAVE, 12 PLAY, 13 REC
+# l'heure envoyée par le compagnon : 21:00:00
+100 cc 102 21
+100 cc 103 0
+100 cc 104 0
+101 cc 105 0
+500 shot 01-pret
+800 enc 5 -3
+900 shot 02-volume
+3000 enc 6 1
+3100 shot 03-nouveau-preset
+3500 btn 9
+3600 shot 04-enregistre
+3900 cc 110 1
+3901 cc 111 66
+3902 cc 111 97
+3903 cc 111 116
+3904 cc 111 104
+3905 cc 111 39
+3906 cc 111 115
+3907 cc 111 32
+3908 cc 111 65
+3909 cc 111 115
+3910 cc 111 116
+3911 cc 111 111
+3912 cc 111 114
+3913 cc 111 105
+3914 cc 111 97
+3915 cc 112 0
+4500 enc 6 -1
+5000 enc 6 1
+5100 shot 05-preset-nomme
+6000 enc 6 -1
+6100 btn 1
+6200 btn 1
+6300 btn 0
+7000 enc 2 2
+10000 btn 12
+13000 shot 06-attente
+30000 shot 07-sonar
+32000 btn 12
+33000 shot 08-son-coupe
+34000 key
+36000 down 12
+36800 up 12
+40000 enc 4 -60
+40600 shot 09-temps-retire
+42000 enc 4 -20
+42500 shot 10-fin-proche
+75000 shot 11-depassement
+78000 enc 1 6
+78300 shot 12-reverb
+85000 down 13
+86200 up 13
+87000 shot 13-arret
+88000 end
