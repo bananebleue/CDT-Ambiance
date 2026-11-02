@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0A1214">
 <meta name="description" content="Ambiances sonores pour Les Chants de Tindalos : sonar à compte à rebours pour le scénario Spring's Island.">
-<title>CDT Ambiance</title>
+<title>CDT Compagnon</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -127,7 +127,7 @@ button { cursor: pointer; }
 <main class="app">
   <section class="col-screen" aria-label="Écran du sonar">
     <div class="top">
-      <h1 class="brand">CDT AMBIANCE</h1>
+      <h1 class="brand">CDT COMPAGNON</h1>
       <div class="wake" id="wake">Écran : veille normale</div>
     </div>
     <div class="screen" id="screen">
@@ -743,6 +743,23 @@ function frame(ts) {
 }
 
 /* ---------- Compagnon FM-1 : test Web MIDI ---------- */
+// Réponse M-VAVE : F0 00 32 45 … F7, charge utile en flux de bits 7 → 8, poids faible d'abord.
+// On décode depuis plusieurs décalages et on garde la chaîne lisible qui contient « FM ».
+function unpack7(bytes) {
+  const out = []; let buf = 0, n = 0;
+  for (const b of bytes) { buf |= (b & 0x7F) << n; n += 7; while (n >= 8) { out.push(buf & 0xFF); buf >>= 8; n -= 8; } }
+  return out;
+}
+function fm1Identity(d) {
+  if (d.length < 12 || d[1] !== 0x00 || d[2] !== 0x32 || d[3] !== 0x45) return null;
+  const body = d.slice(4, -1);
+  for (let off = 0; off <= 10 && off < body.length; off++) {
+    const txt = unpack7(body.slice(off)).map(c => (c >= 0x20 && c < 0x7F ? String.fromCharCode(c) : '\u0000')).join('');
+    const m = txt.match(/FM-?1[\x20-\x7E]{0,16}/);
+    if (m) return m[0].trim();
+  }
+  return null;
+}
 function bindMidi() {
   const log = $('midiLog');
   const write = t => { log.textContent = t; };
@@ -755,12 +772,26 @@ function bindMidi() {
     if (!ins.length && !outs.length) { write('Aucun appareil MIDI vu. Vérifie le câble USB-C (il doit transporter les données) et que le FM-1 est allumé.'); return; }
     let text = 'Entrées : ' + (ins.map(p => p.name).join(', ') || 'aucune') + '\nSorties : ' + (outs.map(p => p.name).join(', ') || 'aucune') + '\n';
     write(text + 'Demande d’identité envoyée…');
-    const replies = [];
-    ins.forEach(p => { p.onmidimessage = m => { if (m.data[0] === 0xF0) replies.push(p.name + ' → ' + [...m.data].map(b => b.toString(16).padStart(2, '0')).join(' ')); }; });
-    outs.forEach(p => { try { p.send([0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7]); } catch (e) { /* port non disponible */ } });
+    const replies = [], idents = [];
+    ins.forEach(p => { p.onmidimessage = m => {
+      const d = [...m.data];
+      if (d[0] !== 0xF0) return;
+      replies.push(p.name + ' → ' + d.map(b => b.toString(16).padStart(2, '0')).join(' '));
+      const id = fm1Identity(d);
+      if (id) idents.push(id);
+    }; });
+    outs.forEach(p => {
+      try {
+        p.send([0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7]);                    // demande d'identité MIDI standard
+        p.send([0xF0, 0x00, 0x32, 0x45, 0x00, 0x00, 0x00, 0x40, 0x7F, 0xF7]); // demande d'identité M-VAVE (lecture seule)
+      } catch (e) { /* port non disponible */ }
+    });
     setTimeout(() => {
       ins.forEach(p => { p.onmidimessage = null; });
-      write(text + (replies.length ? 'Réponses :\n' + replies.join('\n') : 'Aucune réponse à la demande d’identité. Le FM-1 est bien vu si son nom apparaît ci-dessus ; c’est suffisant pour la phase 0.'));
+      let out = text;
+      if (idents.length) out += 'Firmware identifié : ' + [...new Set(idents)].join(', ') + '\n';
+      out += replies.length ? 'Réponses brutes :\n' + replies.join('\n') : 'Aucune réponse aux demandes d’identité. Le FM-1 est bien vu si son nom apparaît ci-dessus ; c’est suffisant pour la phase 0.';
+      write(out);
     }, 1500);
   });
 }

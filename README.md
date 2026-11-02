@@ -4,7 +4,7 @@ Ambiances sonores pour le jeu de rôle **Les Chants de Tindalos** (Walpurgis Éd
 
 Premier module : le **sonar de Spring's Island**. Un ping émis, son pong qui revient, de plus en plus rapprochés jusqu'au bip continu final, avec un compte à rebours réglable en direct pendant la partie.
 
-**Utiliser la page :** https://bananebleue.github.io/CDT-Ambiance/
+**Utiliser la page web CDT Compagnon :** https://bananebleue.github.io/CDT-Ambiance/
 
 Elle fonctionne dans un navigateur récent, sur téléphone comme sur ordinateur. Sur Android, Chrome propose de l'installer sur l'écran d'accueil ; elle marche ensuite sans connexion.
 
