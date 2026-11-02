@@ -16,14 +16,18 @@
 
 1. Récupérez `spring-sonar.fwsc` : artefact `spring-sonar-fwsc` de la dernière exécution réussie de
    *fm1-firmware* sur GitHub (onglet Actions), ou une version publiée.
-2. Sur ordinateur, dans Chrome ou Edge, ouvrez le [FM-1 Firmware Hub](https://thefirmwarehub.com), branchez le
-   FM-1 en USB, installez le fichier local `spring-sonar.fwsc`. Ne débranchez rien pendant l'installation.
-   (Ou, avec Python : `python3 tools/fm1_install.py build/spring-sonar.fwsc`.)
-3. Le FM-1 redémarre sur l'écran du sonar ; « Détecter le FM-1 » doit répondre `FM-1_960`.
+2. Décompressez le zip pour obtenir `spring-sonar.fwsc`.
+3. Dans Chrome ou Edge, sur ordinateur ou sur le téléphone, ouvrez
+   [CDT Compagnon](https://bananebleue.github.io/CDT-Ambiance/), section *Installer un firmware* : fermez d'abord
+   le Firmware Hub et tout logiciel qui utilise le FM-1, branchez le FM-1 en USB, choisissez le fichier, cochez la
+   sauvegarde, puis *Installer sur le FM-1*. Ne débranchez rien pendant l'écriture.
+   (Ou, avec Python 3.12 : `py -3.12 tools/fm1_install.py spring-sonar.fwsc`, après
+   `py -3.12 -m pip install mido python-rtmidi`.)
+4. Le FM-1 redémarre sur l'écran du sonar ; « Détecter le FM-1 » doit répondre `FM-1_960`.
 
 ## Revenir à la V15
 
-Dans le FM-1 Firmware Hub : retour au firmware officiel (ou l'outil M-UPGRADE de M-VAVE avec `FM-1.fwsc`).
+Dans le [FM-1 Firmware Hub](https://thefirmwarehub.com) : bouton « official V15 » (ou l'outil M-UPGRADE de M-VAVE avec `FM-1.fwsc`).
 Puis restaurez vos sons et projets.
 
 ## Si quelque chose se passe mal
