@@ -70,6 +70,10 @@ jobs:
           ls -l build/*.fwsc
           (cd build && sha256sum *.fwsc > SHA256SUMS)
 
+      - name: Écran de plantage → fonctions (tools/crash.txt)
+        if: hashFiles('fm1/tools/crash.txt') != ''
+        run: python3 tools/crash_lookup.py $(grep -v '^#' tools/crash.txt)
+
       - uses: actions/upload-artifact@v4
         with:
           name: spring-sonar-fwsc
