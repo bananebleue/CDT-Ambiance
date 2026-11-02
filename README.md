@@ -56,8 +56,10 @@ Tous les sons sont synthétisés en direct (Web Audio) ; aucun fichier audio n'e
 ## Feuille de route
 
 - [x] Version web (sonar sur téléphone)
-- [ ] Compagnon M-VAVE FM-1 : installation du firmware, sauvegarde et retour au firmware d'origine, synchronisation de l'heure, noms des presets (le bouton « Détecter le FM-1 » sert déjà de test Web MIDI)
-- [ ] Firmware Spring's Sonar pour le M-VAVE FM-1
+- [x] Compagnon : détection du FM-1 et de son firmware (Web MIDI, PC et Android)
+- [x] Compagnon : heure et noms de presets envoyés au firmware Spring's Sonar
+- [ ] Compagnon : installation du firmware, sauvegarde et retour au firmware d'origine
+- [ ] Firmware Spring's Sonar pour le M-VAVE FM-1 : en développement sur la branche `firmware` (`fm1/`), compilé, pas encore essayé sur un FM-1
 - [ ] Autres ambiances (Bath's Astoria…)
 
 ## Licence

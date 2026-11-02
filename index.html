@@ -198,6 +198,16 @@ button { cursor: pointer; }
       <p>Pour la phase 0 : branche le FM-1 en USB-C, ouvre cette page dans Chrome, puis vérifie que le téléphone le voit. L'installation du firmware, la sauvegarde et la synchronisation de l'heure arriveront ici avec le firmware.</p>
       <button class="btn" id="midi" type="button" style="width: 100%"><span>Détecter le FM-1</span><small>Web MIDI · demande d'identité</small></button>
       <div class="log" id="midiLog" role="status">Aucun test lancé.</div>
+      <div id="sonarTools" hidden>
+        <p>Spring's Sonar est installé sur ce FM-1 : envoie-lui l'heure (pour l'heure de fin), ou un nom de preset.</p>
+        <button class="btn" id="syncTime" type="button" style="width: 100%"><span>Synchroniser l'heure</span><small>à refaire après chaque mise sous tension</small></button>
+        <form class="presets" id="nameForm">
+          <div><label for="nameIdx">Preset n°</label><input id="nameIdx" type="number" min="1" max="32" value="1" inputmode="numeric"></div>
+          <div><label for="nameTxt">Nom (sans accents)</label><input id="nameTxt" type="text" maxlength="19" autocomplete="off" value="Spring's Island"></div>
+          <button class="btn full" type="submit"><span>Envoyer le nom</span><small>apparaît sur le FM-1</small></button>
+        </form>
+        <div class="saved" id="sonarSent" role="status"></div>
+      </div>
     </div>
 
     <p class="foot">Clavier d'ordinateur : <kbd>Espace</kbd> = PLAY (maintenir pour un retour en fondu), une lettre = écouter, <kbd>R</kbd> maintenu = arrêter. Sons synthétisés d'après des références de La Sonothèque, voicebosch et freesound community. Réglages et presets restent dans ce navigateur.</p>
@@ -811,6 +821,30 @@ function bindMidi() {
     out += replies.length ? 'Réponses brutes :\n' + replies.join('\n') + '\n' : 'Aucune réponse aux demandes d’identité.\n';
     out += 'Diagnostic : ' + received + ' message(s) reçu(s), dont ' + sysexCount + ' SysEx.\n' + ports;
     write(out);
+    // Spring's Sonar (identité FM-1_96x) : l'heure et les noms de presets, en contrôleurs MIDI sur le canal 16
+    const isSonar = idents.some(id => /^FM-?1_96\d$/.test(id));
+    $('sonarTools').hidden = !isSonar;
+    sonarOuts = isSonar ? outs : [];
+  });
+  let sonarOuts = [];
+  const cc = (n, v) => sonarOuts.forEach(p => { try { p.send([0xBF, n, v & 0x7F]); } catch (e) { /* port fermé */ } });
+  const sent = t => { $('sonarSent').textContent = t; setTimeout(() => { $('sonarSent').textContent = ''; }, 3000); };
+  $('syncTime').addEventListener('click', () => {
+    if (!sonarOuts.length) return;
+    const d = new Date(Date.now() + 500);
+    cc(102, d.getHours()); cc(103, d.getMinutes()); cc(104, d.getSeconds()); cc(105, 0);
+    sent('Heure envoyée : ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '.');
+  });
+  $('nameForm').addEventListener('submit', e => {
+    e.preventDefault();
+    if (!sonarOuts.length) return;
+    const idx = Math.max(1, Math.min(32, parseInt($('nameIdx').value, 10) || 1));
+    const name = ($('nameTxt').value || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7E]/g, '').slice(0, 19).trim();
+    if (!name) return;
+    cc(110, idx - 1);
+    for (const ch of name) cc(111, ch.charCodeAt(0));
+    cc(112, 0);
+    sent('Nom envoyé au preset P' + idx + ' : ' + name + '.');
   });
 }
 
