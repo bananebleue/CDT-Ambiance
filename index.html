@@ -113,6 +113,13 @@ button { cursor: pointer; }
 /* Compagnon */
 .companion p { margin: 6px 2px 10px; font-size: 15px; line-height: 1.45; color: var(--brume); max-width: 62ch; }
 .log { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.5; background: var(--abysse); border: 1px solid var(--trait); border-radius: 10px; padding: 10px; margin: 8px 2px 14px; white-space: pre-wrap; word-break: break-word; color: var(--os); min-height: 3em; }
+.companion h3 { font-family: var(--f-display); font-size: 15px; letter-spacing: 0.08em; color: var(--laiton); margin: 18px 2px 4px; }
+.companion .file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.companion .file:focus-within { outline: 2px solid var(--laiton); outline-offset: 2px; }
+.check { display: flex; gap: 10px; align-items: flex-start; margin: 4px 2px 12px; font-size: 15px; line-height: 1.4; color: var(--os); }
+.check input { width: 22px; height: 22px; flex: none; margin-top: 1px; accent-color: var(--laiton); }
+.fwbar { width: calc(100% - 4px); height: 14px; margin: 0 2px 10px; accent-color: var(--vdg); }
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; }
 .foot { font-size: 13px; line-height: 1.5; color: #7F958F; padding: 0 4px; }
 .foot kbd { font-family: var(--f-body); font-weight: 700; color: var(--brume); border: 1px solid var(--trait); border-radius: 4px; padding: 0 5px; }
 @media (max-width: 400px) {
@@ -194,8 +201,8 @@ button { cursor: pointer; }
     </div>
 
     <div class="panel companion">
-      <h2>COMPAGNON FM&#8209;1 · EN PRÉPARATION</h2>
-      <p>Pour la phase 0 : branche le FM-1 en USB-C, ouvre cette page dans Chrome, puis vérifie que le téléphone le voit. L'installation du firmware, la sauvegarde et la synchronisation de l'heure arriveront ici avec le firmware.</p>
+      <h2>COMPAGNON FM&#8209;1</h2>
+      <p>Branche le FM-1 en USB-C (câble de données), ouvre cette page dans Chrome ou Edge, sur téléphone ou ordinateur, puis vérifie que l'appareil est vu.</p>
       <button class="btn" id="midi" type="button" style="width: 100%"><span>Détecter le FM-1</span><small>Web MIDI · demande d'identité</small></button>
       <div class="log" id="midiLog" role="status">Aucun test lancé.</div>
       <div id="sonarTools" hidden>
@@ -208,12 +215,21 @@ button { cursor: pointer; }
         </form>
         <div class="saved" id="sonarSent" role="status"></div>
       </div>
+
+      <h3>INSTALLER UN FIRMWARE</h3>
+      <p>Installe un fichier <b>.fwsc</b> (Spring's Sonar, ou un autre firmware Felucca / Dinghy). Ferme d'abord les autres pages et logiciels qui utilisent le FM-1 (Firmware Hub, éditeur M-VAVE), et ne débranche rien pendant l'écriture (une à deux minutes). Pour revenir à la V15 officielle : bouton « official V15 » du Firmware Hub.</p>
+      <label class="btn file" style="width: 100%"><input id="fwFile" type="file" accept=".fwsc,application/octet-stream"><span>Choisir le fichier .fwsc</span><small>extrait du zip téléchargé</small></label>
+      <div class="log" id="fwLog" role="status">Aucun fichier choisi.</div>
+      <progress class="fwbar" id="fwBar" max="100" value="0" hidden></progress>
+      <label class="check"><input id="fwOk" type="checkbox"><span>J'ai sauvegardé mes sons et projets : l'installation efface ce qui est enregistré dans le FM-1.</span></label>
+      <button class="btn" id="fwInstall" type="button" style="width: 100%" disabled><span>Installer sur le FM-1</span><small>Web MIDI · environ 1 à 2 minutes</small></button>
     </div>
 
     <p class="foot">Clavier d'ordinateur : <kbd>Espace</kbd> = PLAY (maintenir pour un retour en fondu), une lettre = écouter, <kbd>R</kbd> maintenu = arrêter. Sons synthétisés d'après des références de La Sonothèque, voicebosch et freesound community. Réglages et presets restent dans ce navigateur.</p>
   </section>
 </main>
 
+<script src="fm1ota.js"></script>
 <script>
 (() => {
 'use strict';
@@ -848,10 +864,81 @@ function bindMidi() {
   });
 }
 
+/* ---------- Compagnon FM-1 : installation d'un firmware (fm1ota.js) ---------- */
+function bindInstaller() {
+  const log = $('fwLog'), bar = $('fwBar'), btn = $('fwInstall'), okBox = $('fwOk'), file = $('fwFile');
+  let pkg = null, busy = false;
+  const write = t => { log.textContent = t; };
+  const ready = () => { btn.disabled = busy || !pkg || !okBox.checked; file.disabled = busy; };
+  const kb = n => Math.round(n / 1024) + ' Ko';
+  file.addEventListener('change', async () => {
+    pkg = null; bar.hidden = true;
+    const f = file.files && file.files[0];
+    if (!f) { write('Aucun fichier choisi.'); ready(); return; }
+    try {
+      const raw = new Uint8Array(await f.arrayBuffer());
+      const { product, image } = FM1OTA.loadPackage(raw);
+      pkg = { product, image, name: f.name };
+      const what = /^FM-1_96\d$/.test(product) ? 'Spring’s Sonar' : 'firmware Felucca / Dinghy';
+      write('Fichier : ' + f.name + ' (' + kb(raw.length) + ')\nIdentité : ' + product + ' — ' + what + '\nPaquet vérifié (en-tête, liste et contrôles CRC).');
+    } catch (e) {
+      write('Fichier refusé : ' + (e instanceof FM1OTA.InstallError ? e.message : 'illisible (' + e + ')'));
+    }
+    ready();
+  });
+  okBox.addEventListener('change', ready);
+  const guard = e => { e.preventDefault(); e.returnValue = ''; };
+  btn.addEventListener('click', async () => {
+    if (!pkg || busy) return;
+    if (!navigator.requestMIDIAccess) { write('Web MIDI n’est pas disponible dans ce navigateur : utilise Chrome ou Edge.'); return; }
+    let access;
+    try { access = await navigator.requestMIDIAccess({ sysex: true }); }
+    catch (e) { write('Accès MIDI refusé : autorise l’accès aux appareils MIDI pour cette page, puis recommence.'); return; }
+    busy = true; ready(); bar.hidden = true; bar.value = 0;
+    let lock = null;
+    try { if ('wakeLock' in navigator) lock = await navigator.wakeLock.request('screen'); } catch (e) { /* facultatif */ }
+    window.addEventListener('beforeunload', guard);
+    const head = 'Fichier : ' + pkg.name + ' → ' + pkg.product + '\n';
+    try {
+      write(head + 'Recherche du FM-1…');
+      const up = new FM1OTA.Updater(access);
+      const dev = await up.find();
+      if (!dev) {
+        const names = [...access.inputs.values()].map(p => p.name).join(', ') || 'aucun';
+        throw new FM1OTA.InstallError('notfound', 'FM-1 introuvable. Vérifie le câble (données), que le FM-1 est allumé et qu’aucun autre logiciel ne l’utilise.\nPorts MIDI vus : ' + names);
+      }
+      const resume = dev.id.loader ? '\nLe FM-1 est resté en mode mise à jour : on termine l’écriture.' : '';
+      if (!window.confirm('Installer ' + pkg.product + ' sur le FM-1 (actuellement ' + dev.id.text + ') ?\n\nCe qui est enregistré dans le FM-1 sera effacé. Ne débranche rien pendant l’écriture.')) {
+        dev.link.close(); write(head + 'Installation annulée.'); return;
+      }
+      const lines = ['FM-1 trouvé : ' + dev.id.text + ' (port « ' + dev.name + ' »)' + resume];
+      const show = extra => write(head + lines.join('\n') + (extra ? '\n' + extra : ''));
+      await up.install(dev, pkg.image, pkg.product, (k, a) => {
+        if (k === 'start') { lines.push('1/3 Vérification du paquet par le FM-1…'); show(); }
+        else if (k === 'check') show('lectures : ' + a);
+        else if (k === 'loader') { lines.push('Passage en mode mise à jour (le port USB change de nom)…'); show(); }
+        else if (k === 'write') {
+          if (bar.hidden) { lines.push('2/3 Écriture — ne débranche rien.'); bar.hidden = false; }
+          bar.value = a; show('écriture : ' + a + ' %');
+        }
+        else if (k === 'reboot') { lines.push('3/3 Redémarrage du FM-1…'); show(); }
+        else if (k === 'done') { lines.push('Terminé : le FM-1 répond ' + a + '.'); show(/^FM-?1_96\d$/.test(a) ? 'Clique sur « Détecter le FM-1 » pour lui envoyer l’heure.' : ''); }
+      });
+    } catch (e) {
+      const msg = e instanceof FM1OTA.InstallError ? e.message : 'erreur inattendue (' + (e && e.message ? e.message : e) + ')';
+      write(log.textContent + '\n\nÉchec : ' + msg + '\nEn dernier recours : maintiens OCT− en allumant le FM-1 (secours USB), puis réinstalle.');
+    } finally {
+      window.removeEventListener('beforeunload', guard);
+      if (lock) lock.release().catch(() => {});
+      busy = false; ready();
+    }
+  });
+}
+
 /* ---------- Démarrage ---------- */
 load();
 fillPresets();
-bindSteppers(); bindTransport(); bindPresets(); bindMidi();
+bindSteppers(); bindTransport(); bindPresets(); bindMidi(); bindInstaller();
 sizeCanvas(); render();
 requestAnimationFrame(frame);
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

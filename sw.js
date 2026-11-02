@@ -1,10 +1,11 @@
 // CDT Ambiance — fonctionnement hors connexion.
 // Les fichiers de l'application sont mis en cache à l'installation ;
 // les polices Google sont mises en cache au premier chargement.
-const VERSION = 'cdt-ambiance-v5';
+const VERSION = 'cdt-ambiance-v6';
 const APP_FILES = [
   './',
   './index.html',
+  './fm1ota.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',

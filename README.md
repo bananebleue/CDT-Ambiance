@@ -58,7 +58,8 @@ Tous les sons sont synthétisés en direct (Web Audio) ; aucun fichier audio n'e
 - [x] Version web (sonar sur téléphone)
 - [x] Compagnon : détection du FM-1 et de son firmware (Web MIDI, PC et Android)
 - [x] Compagnon : heure et noms de presets envoyés au firmware Spring's Sonar
-- [ ] Compagnon : installation du firmware, sauvegarde et retour au firmware d'origine
+- [x] Compagnon : installation d'un firmware `.fwsc` par Web MIDI (`fm1ota.js`, transposé de l'installateur de Dinghy ; testé sur un FM-1 simulé : `node tests/fm1ota_test.js`)
+- [ ] Compagnon : retour au firmware d'origine depuis la page (en attendant : bouton « official V15 » du Firmware Hub)
 - [ ] Firmware Spring's Sonar pour le M-VAVE FM-1 : en développement sur la branche `firmware` (`fm1/`), compilé, pas encore essayé sur un FM-1
 - [ ] Autres ambiances (Bath's Astoria…)
 
