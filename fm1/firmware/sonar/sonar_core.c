@@ -145,6 +145,7 @@ static uint32_t sn_duck_hold;
 static sn_voice_t *sn_cont;                        /* le bip continu en cours, s'il y en a un */
 static uint32_t sn_pings;
 
+#define SN_T_MAX_S 97000u                    /* la rampe la plus longue (s) : T x 44 100 tient sur 32 bits */
 #define SN_AFTER(a, b) ((int32_t)((a) - (b)) >= 0)  /* a est atteint ou dépassé par rapport à b */
 
 static uint32_t sn_interval(uint32_t r, uint32_t T)
@@ -284,8 +285,18 @@ static void sn_do_cmd(uint32_t cmd, int32_t arg)
     case SN_CMD_REMAINING:
         if ((sn_phase != SN_SONAR && sn_phase != SN_CONT) || arg < 0) break;
         if ((uint32_t)arg > SN_MAX_SECONDS) arg = (int32_t)SN_MAX_SECONDS;
+        if (sn_phase == SN_SONAR && arg > 0 && SN_AFTER(sn_end, now)) {
+            /* du temps ajouté : le rythme du moment reste le même, seule la rampe jusqu'au bip continu s'allonge
+             * (la part restante r / T est gardée : T' = r' x T / r, en secondes, sans division 64 bits) */
+            uint32_t r_s = (sn_end - now) / SN_FS, T_s = sn_T / SN_FS;
+            if ((uint32_t)arg > r_s && r_s > 0u) {
+                uint32_t t2 = (uint32_t)arg * T_s / r_s;   /* au plus 43 200 x 97 000 : tient sur 32 bits */
+                if (t2 > SN_T_MAX_S) t2 = SN_T_MAX_S;
+                if (t2 > T_s) sn_T = t2 * SN_FS;
+            }
+        }
         sn_end = now + (uint32_t)arg * SN_FS;
-        if (sn_phase == SN_SONAR && arg > 0) {    /* le rythme suit tout de suite le nouveau temps restant */
+        if (sn_phase == SN_SONAR && arg > 0) {    /* retirer du temps : le rythme s'accélère tout de suite */
             uint32_t I = sn_interval((uint32_t)arg * SN_FS, sn_T);
             if ((int32_t)(sn_next_ping - now) > (int32_t)I) sn_next_ping = now + I;
             sn_cur_I = I; sn_cur_E = sn_echo(I);

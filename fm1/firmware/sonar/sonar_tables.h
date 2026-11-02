@@ -160,7 +160,7 @@ static const uint32_t SN_SEMI[49] = {   /* index n + 24 */
     155872, 165140, 174960, 185364, 196386, 208064, 220436, 233544, 247431, 262144,
 };
 
-#define SN_I_MAX 352800u   /* 8.0 s */
+#define SN_I_MAX 308700u   /* 7.0 s */
 #define SN_I_MIN 11025u   /* 0.25 s */
 #define SN_E_MAX 79380u   /* 1.8 s */
 #define SN_E_RATIO_Q16 29491u   /* 0.45 */

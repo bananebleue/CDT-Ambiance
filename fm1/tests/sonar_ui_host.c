@@ -26,7 +26,12 @@ static void ui_hw_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t 
         for (i = 0; i < w; i++)
             if (x + i < 240u && y + j < 240u) fb[(y + j) * 240u + x + i] = px[j * w + i];
 }
-static void ui_hw_led(uint32_t btn, int on) { if (on) leds |= 1u << btn; else leds &= ~(1u << btn); }
+static uint32_t glow;
+static void ui_hw_led(uint32_t btn, int level)
+{
+    if (level == 2) leds |= 1u << btn; else leds &= ~(1u << btn);
+    if (level == 1) glow |= 1u << btn; else glow &= ~(1u << btn);
+}
 static int ui_hw_load(uint32_t which, void *p, uint32_t n)
 {
     if (which > 1u || store_n[which] != n) return -1;

@@ -34,7 +34,7 @@ static void ui_hw_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t 
     for (i = 0; i < n; i++) px[i] = swap16(px[i]);    /* l'écran prend le RGB565 octets inversés */
     lcd_blit(x, y, w, h, px);
 }
-static void ui_hw_led(uint32_t btn, int on) { fm1_led_key(btn, on); }
+static void ui_hw_led(uint32_t btn, int level) { fm1_led_key(btn, level == 2); fm1_led_key_glow(btn, level == 1); }
 static int ui_hw_load(uint32_t which, void *p, uint32_t n) { return which ? blob_load(0, p, n) : settings_load(p, n); }
 static int ui_hw_save(uint32_t which, const void *p, uint32_t n) { return which ? blob_save(0, p, n) : settings_save(p, n); }
 

@@ -4,11 +4,11 @@ Le sonar d'ambiance du scénario **Spring's Island** (Les Chants de Tindalos), d
 M-VAVE FM-1 : un ping émis, son pong qui revient, de plus en plus rapprochés jusqu'au bip continu final. La même
 chose que la page web [CDT Compagnon](https://bananebleue.github.io/CDT-Ambiance/), sans téléphone.
 
-> **État : version de développement, jamais installée sur un FM-1.** Le cœur du son et l'interface sont testés
-> sur ordinateur (voir *Tests*) ; la compilation se fait sur GitHub. Lisez [docs/INSTALLER.md](docs/INSTALLER.md)
-> avant le premier essai.
+> **État : version de développement, essayée sur un FM-1 (novembre 2026).** Le cœur du son et l'interface sont
+> aussi testés sur ordinateur (voir *Tests*) ; la compilation se fait sur GitHub. Installation :
+> [docs/INSTALLER.md](docs/INSTALLER.md), ou le bouton « Installer la dernière version » de CDT Compagnon.
 
-<p align="center"><img src="docs/screens/sonar.png" width="240" alt="L'écran du sonar en cours : 59:51 restant, ping toutes les 7,9 s"></p>
+<p align="center"><img src="docs/screens/sonar.png" width="240" alt="L'écran du sonar en cours : 59:51 restant, ping toutes les 6,9 s"></p>
 
 ## Les commandes
 
@@ -16,21 +16,23 @@ chose que la page web [CDT Compagnon](https://bananebleue.github.io/CDT-Ambiance
 | --- | --- |
 | Molette 1 | Délai avant départ (0 par défaut ; 5 s par cran, 1 min au-delà de 2 min) |
 | Molette 2 | Fade-in (5 s par cran) |
-| Molette 3 | Durée du sonar ; en jeu, ajoute ou retire du temps (1 min par cran, 10 s sous 5 min) |
-| Molette 4 | Volume (2 % par cran) |
-| ALGORITHM | Réverbération générale, par-dessus tout le son |
-| SELECT | Type de son : Abysse, Coque, Métal, Clic, Sonde, Impulsion (sans affichage) |
+| Molette 3 | Réverbération générale, par-dessus tout le son (2 % par cran) ; ALGORITHM fait de même |
+| Molette 4 | Durée du sonar ; en jeu, ajoute ou retire du temps (1 min par cran, 10 s sous 5 min). Ajouter du temps garde le rythme du moment et allonge la rampe jusqu'au bip continu ; en retirer accélère tout de suite |
+| SELECT | Type de son : Abysse, Coque, Métal, Clic, Sonde, Impulsion (son nom au milieu de l'écran) |
 | Touches du clavier | Écouter un ping et son pong : avant le départ, ou une fois quand le son est coupé |
 | OCT− / OCT+ | Tonalité, un demi-ton par appui |
 | PLAY | Au repos : lancer. Ensuite : couper le son (le décompte continue) ; le rétablir d'un appui court, ou en fondu d'un appui long |
 | REC, maintenu 1 s | Arrêter et réinitialiser |
 | PRESETS | Faire défiler les presets, puis « + Nouveau » |
 | SAVE | Enregistrer dans le preset affiché, ou en créer un sur « + Nouveau » |
-| MASTER | Volume de sortie du FM-1 |
+| MASTER | Volume (le sonar n'a pas d'autre réglage de volume) |
 
 Les valeurs ne descendent jamais sous zéro et n'ont pas de butée haute (12 h au plus). Les réglages et les presets
-sont gardés en mémoire flash. La LED PLAY s'éteint brièvement à chaque ping ; SAVE s'allume quand les réglages
-diffèrent du preset affiché.
+sont gardés en mémoire flash. Les pings s'espacent de 7 s au plus, 0,25 s à la fin.
+
+Les LED des boutons n'ont qu'une couleur : PLAY luit faiblement quand le sonar est prêt, s'allume pendant le sonar
+(baisse un instant à chaque ping) et clignote quand le son est coupé ; REC pulse pendant le sonar ; SAVE s'allume
+quand les réglages diffèrent du preset affiché.
 
 ## L'heure et les noms de presets
 

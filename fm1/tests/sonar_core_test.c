@@ -81,7 +81,7 @@ int main(int argc, char **argv)
     run_seconds(2.5, &st);
     check(st.phase == SN_SONAR, "après le délai : Sonar");
     check(st.remaining_s == 120 || st.remaining_s == 119, "durée restante ~120 s");
-    check(st.interval_ms > 7900 && st.interval_ms <= 8000, "premier intervalle ~8 s");
+    check(st.interval_ms > 6900 && st.interval_ms <= 7000, "premier intervalle ~7 s");
 
     run_seconds(40.0, &st);                        /* r ~ 80 s */
     printf("à %d s restantes : ping toutes les %u ms, pong après %u ms\n", st.remaining_s, st.interval_ms, st.echo_ms);
@@ -102,6 +102,17 @@ int main(int argc, char **argv)
     run_seconds(6.0, &st);
     check(st.muted == 0, "son rétabli en fondu");
 
+    {   /* le MJ ajoute 5 min : le rythme du moment reste le même, seule la rampe s'allonge */
+        uint32_t i0 = st.interval_ms, tol = st.interval_ms / 40u;
+        int32_t r0 = st.remaining_s;
+        sn_cmd(SN_CMD_REMAINING, r0 + 300);
+        run_seconds(0.1, &st);
+        check(st.remaining_s >= r0 + 299, "5 min ajoutées au temps restant");
+        check(st.interval_ms + tol >= i0 && st.interval_ms <= i0 + tol, "temps ajouté : même rythme qu'avant");
+        run_seconds(20.0, &st);
+        check(st.interval_ms <= i0 + tol && st.interval_ms + 4u * tol >= i0, "puis la rampe reprend, sans ralentir");
+        printf("ajout de 5 min : %u ms avant, %u ms 20 s après\n", i0, st.interval_ms);
+    }
     sn_cmd(SN_CMD_REMAINING, 30);                  /* le MJ resserre : plus que 30 s */
     run_seconds(0.2, &st);
     check(st.remaining_s == 30 || st.remaining_s == 29, "temps restant ramené à 30 s");

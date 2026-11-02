@@ -22,7 +22,7 @@ typedef struct {
 /* à fournir par l'application */
 static void ui_hw_sync(void);                                          /* attendre la fin du dernier envoi à l'écran */
 static void ui_hw_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t *px);   /* px en RGB565 ; peut le modifier */
-static void ui_hw_led(uint32_t btn, int on);
+static void ui_hw_led(uint32_t btn, int level);                        /* 0 éteinte, 1 lueur, 2 allumée */
 static int ui_hw_load(uint32_t which, void *p, uint32_t n);            /* which 0 : réglages, 1 : presets ; 0 = lu */
 static int ui_hw_save(uint32_t which, const void *p, uint32_t n);
 

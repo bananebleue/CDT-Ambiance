@@ -63,7 +63,9 @@ static void ui_new_name(char *dst, uint32_t n)       /* "Preset 3" */
     ui_copy_name(dst, s);
 }
 
-static void ui_apply(void) { sn_set(&ui_s); }
+/* le volume se règle au MASTER : le sonar garde un niveau fixe (celui des premiers essais) */
+#define UI_VOLUME 70u
+static void ui_apply(void) { ui_s.volume = UI_VOLUME; sn_set(&ui_s); }
 
 static void ui_load_preset(int32_t i)
 {
@@ -166,13 +168,13 @@ static void ui_step(const ui_in_t *in)
     ui_ms = in->ms;
     sn_status(&ui_st);
 
-    /* les quatre molettes de droite, ALGORITHM, SELECT */
+    /* les quatre molettes de droite (le volume : MASTER), ALGORITHM (réverbération aussi), SELECT */
     ui_turn(F_DELAY, in->enc[UI_ENC_K1]);
     ui_turn(F_FADE, in->enc[UI_ENC_K2]);
-    ui_turn(F_DURATION, in->enc[UI_ENC_K3]);
-    ui_turn(F_VOLUME, in->enc[UI_ENC_K4]);
+    ui_turn(F_REVERB, in->enc[UI_ENC_K3]);
+    ui_turn(F_DURATION, in->enc[UI_ENC_K4]);
     ui_turn(F_REVERB, in->enc[UI_ENC_ALGORITHM]);
-    if ((e = in->enc[UI_ENC_SELECT]) != 0) {            /* type de son : sans affichage (on l'écoute au clavier) */
+    if ((e = in->enc[UI_ENC_SELECT]) != 0) {            /* type de son : son nom dans la barre du milieu */
         int32_t t = ((int32_t)ui_s.type + e) % (int32_t)SN_NTYPES;
         ui_s.type = (uint8_t)(t < 0 ? t + (int32_t)SN_NTYPES : t);
         ui_apply(); ui_dirty_s = 1; ui_changed_ms = ui_ms;
@@ -224,18 +226,24 @@ static void ui_step(const ui_in_t *in)
     /* une touche du clavier : écouter (avant le départ, ou quand le son est coupé) */
     if (in->keys_pressed && ui_preview_ok()) { sn_cmd(SN_CMD_PREVIEW, 0); ui_preview_ms = ui_ms; }
 
-    /* LED : PLAY allumée pendant le sonar (s'éteint brièvement à chaque ping), REC tant qu'il est tenu,
-     * OCT selon la tonalité, SAVE quand les réglages diffèrent du preset affiché */
+    /* LED (une seule couleur par bouton : éteinte, lueur ou allumée)
+     *   PLAY : lueur au repos (prêt), allumée pendant le sonar (baisse un instant à chaque ping), clignote son coupé
+     *   REC  : pulse pendant le sonar (allumée / lueur), allumée tant qu'elle est tenue
+     *   OCT selon la tonalité, SAVE quand les réglages diffèrent du preset affiché */
     if (ui_st.pings != ui_last_ping) { ui_last_ping = ui_st.pings; ui_ping_ms = ui_ms; }
-    ui_hw_led(UI_BTN_PLAY, ui_st.phase != SN_READY && !(ui_st.muted && (ui_ms / 500u) & 1u) && ui_ms - ui_ping_ms > 90u);
-    ui_hw_led(UI_BTN_REC, (in->held & (1u << UI_BTN_REC)) != 0u);
-    ui_hw_led(UI_BTN_OCT_DOWN, ui_s.tone < 0);
-    ui_hw_led(UI_BTN_OCT_UP, ui_s.tone > 0);
+    if (ui_st.phase == SN_READY) ui_hw_led(UI_BTN_PLAY, 1);
+    else if (ui_st.muted) ui_hw_led(UI_BTN_PLAY, (ui_ms / 500u) & 1u ? 0 : 2);
+    else ui_hw_led(UI_BTN_PLAY, ui_ms - ui_ping_ms > 90u ? 2 : 1);
+    if (in->held & (1u << UI_BTN_REC)) ui_hw_led(UI_BTN_REC, 2);
+    else if (ui_st.phase != SN_READY) ui_hw_led(UI_BTN_REC, (ui_ms / 600u) & 1u ? 1 : 2);
+    else ui_hw_led(UI_BTN_REC, 0);
+    ui_hw_led(UI_BTN_OCT_DOWN, ui_s.tone < 0 ? 2 : 0);
+    ui_hw_led(UI_BTN_OCT_UP, ui_s.tone > 0 ? 2 : 0);
     {
         const sn_settings_t *p = ui_cur < (int32_t)ui_pre.n ? &ui_pre.p[ui_cur].s : 0;
         int same = p && p->delay_s == ui_s.delay_s && p->fade_s == ui_s.fade_s && p->duration_s == ui_s.duration_s &&
-                   p->volume == ui_s.volume && p->reverb == ui_s.reverb && p->type == ui_s.type && p->tone == ui_s.tone;
-        ui_hw_led(UI_BTN_SAVE, !same);
+                   p->reverb == ui_s.reverb && p->type == ui_s.type && p->tone == ui_s.tone;
+        ui_hw_led(UI_BTN_SAVE, same ? 0 : 2);
     }
 
     /* écrire en flash seulement au repos, en silence (un effacement coupe le son 50 ms) */
@@ -420,7 +428,7 @@ typedef struct {
     char label[24], big[16], title1[UI_NAME], title2[UI_NAME], sub[40], hint[40];
     uint16_t big_c, sub_c, bg, ring;
 } ui_mid_t;
-typedef struct { char p[8], rev[8], ton[8]; } ui_meta_t;
+typedef struct { char p[8], son[UI_NAME], ton[8]; } ui_meta_t;
 typedef struct { char lab[4][10], val[4][12]; uint16_t vc[4]; uint8_t active; } ui_strip_t;
 static ui_head_t ui_dh;
 static ui_mid_t ui_dm;
@@ -467,9 +475,7 @@ static void ui_draw_meta(const ui_meta_t *t)
     int32_t x;
     ui_begin(240, 22, C_ABYSSE);
     ui_text(&SN_F_LAB14, 10, 16, t->p, C_BRUME, 0);
-    x = 120 - (ui_text_w(&SN_F_LAB14, "REVERB ", 0) + ui_text_w(&SN_F_LAB14, t->rev, 0)) / 2;
-    x = ui_text(&SN_F_LAB14, x, 16, "REVERB ", C_BRUME, 0);
-    ui_text(&SN_F_LAB14, x, 16, t->rev, C_OS, 0);
+    ui_text_c(&SN_F_LAB14, 120, 16, t->son, C_OS);    /* le type de son (SELECT) */
     x = 230 - ui_text_w(&SN_F_LAB14, "TON ", 0) - ui_text_w(&SN_F_LAB14, t->ton, 0);
     x = ui_text(&SN_F_LAB14, x, 16, "TON ", C_BRUME, 0);
     ui_text(&SN_F_LAB14, x, 16, t->ton, C_OS, 0);
@@ -623,27 +629,27 @@ static void ui_draw(void)
     for (i = 0; i < sizeof t; i++) ((char *)&t)[i] = 0;
     if (ui_cur < (int32_t)ui_pre.n) { t.p[0] = 'P'; ui_num(t.p + 1, (uint32_t)ui_cur + 1u); }
     else ui_cat(t.p, "P+");
-    ui_pct(t.rev, ui_s.reverb);
+    ui_copy_name(t.son, SN_TYPES[ui_s.type < SN_NTYPES ? ui_s.type : 1u].name);
     ui_tone(t.ton, ui_s.tone);
 
     /* les quatre cases des molettes */
     for (i = 0; i < sizeof s; i++) ((char *)&s)[i] = 0;
-    ui_cat(s.lab[0], "DÉPART"); ui_cat(s.lab[1], "FADE"); ui_cat(s.lab[3], "VOLUME");
+    ui_cat(s.lab[0], "DÉPART"); ui_cat(s.lab[1], "FADE"); ui_cat(s.lab[2], "RÉVERB");
     for (i = 0; i < 4u; i++) s.vc[i] = C_OS;
     if (ph == SN_WAIT) { ui_mmss(s.val[0], (uint32_t)ui_st.wait_left_s); s.vc[0] = C_LAITON; }
     else if (ph == SN_READY) ui_mmss(s.val[0], ui_s.delay_s);
     else { ui_cat(s.val[0], "—"); s.vc[0] = C_BRUME; }
     ui_mmss(s.val[1], ui_s.fade_s);
+    ui_pct(s.val[2], ui_s.reverb);
     if (ph == SN_SONAR || ph == SN_CONT) {
-        ui_cat(s.lab[2], "± TEMPS");
-        if (r >= 0) ui_mmss(s.val[2], (uint32_t)r);
-        else { s.val[2][0] = '+'; ui_mmss(s.val[2] + 1, (uint32_t)(-r)); s.vc[2] = C_SANG; }
+        ui_cat(s.lab[3], "± TEMPS");
+        if (r >= 0) ui_mmss(s.val[3], (uint32_t)r);
+        else { s.val[3][0] = '+'; ui_mmss(s.val[3] + 1, (uint32_t)(-r)); s.vc[3] = C_SANG; }
     } else {
-        ui_cat(s.lab[2], "DURÉE");
-        ui_mmss(s.val[2], ui_s.duration_s);
+        ui_cat(s.lab[3], "DURÉE");
+        ui_mmss(s.val[3], ui_s.duration_s);
     }
-    ui_pct(s.val[3], ui_s.volume);
-    if (focus && ui_focus >= F_DELAY && ui_focus <= F_VOLUME) s.active = (uint8_t)ui_focus;
+    if (focus) s.active = ui_focus == F_DELAY ? 1u : ui_focus == F_FADE ? 2u : ui_focus == F_REVERB ? 3u : ui_focus == F_DURATION ? 4u : 0u;
 
     if (!ui_drawn || memcmp(&h, &ui_dh, sizeof h)) { ui_dh = h; ui_draw_head(&h); }
     if (!ui_drawn || memcmp(&m, &ui_dm, sizeof m)) { ui_dm = m; ui_draw_mid(&m); }

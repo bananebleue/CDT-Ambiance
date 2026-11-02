@@ -35,7 +35,7 @@ ALLPASS = [556, 441]
 DAMP = 0.25                  # amortissement des aigus dans les boucles
 
 # --- courbes du sonar
-I_MAX, I_MIN, K_CURVE = 8.0, 0.25, 0.7
+I_MAX, I_MIN, K_CURVE = 7.0, 0.25, 0.7
 E_MAX, E_RATIO = 1.8, 0.45
 
 def db(v):
