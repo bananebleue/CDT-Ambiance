@@ -217,12 +217,14 @@ button { cursor: pointer; }
       </div>
 
       <h3>INSTALLER UN FIRMWARE</h3>
-      <p>Installe un fichier <b>.fwsc</b> (Spring's Sonar, ou un autre firmware Felucca / Dinghy). Ferme d'abord les autres pages et logiciels qui utilisent le FM-1 (Firmware Hub, éditeur M-VAVE), et ne débranche rien pendant l'écriture (une à deux minutes). Pour revenir à la V15 officielle : bouton « official V15 » du Firmware Hub.</p>
-      <label class="btn file" style="width: 100%"><input id="fwFile" type="file" accept=".fwsc,application/octet-stream"><span>Choisir le fichier .fwsc</span><small>extrait du zip téléchargé</small></label>
-      <div class="log" id="fwLog" role="status">Aucun fichier choisi.</div>
-      <progress class="fwbar" id="fwBar" max="100" value="0" hidden></progress>
+      <p>Ferme d'abord les autres pages et logiciels qui utilisent le FM-1 (Firmware Hub, éditeur M-VAVE), et ne débranche rien pendant l'écriture (une à deux minutes). Pour revenir à la V15 officielle : bouton « official V15 » du Firmware Hub.</p>
       <label class="check"><input id="fwOk" type="checkbox"><span>J'ai sauvegardé mes sons et projets : l'installation efface ce qui est enregistré dans le FM-1.</span></label>
-      <button class="btn" id="fwInstall" type="button" style="width: 100%" disabled><span>Installer sur le FM-1</span><small>Web MIDI · environ 1 à 2 minutes</small></button>
+      <button class="btn" id="fwLatest" type="button" style="width: 100%" disabled><span>Installer la dernière version</span><small id="fwLatestInfo">Spring's Sonar · recherche sur GitHub…</small></button>
+      <div class="log" id="fwLog" role="status">Prêt.</div>
+      <progress class="fwbar" id="fwBar" max="100" value="0" hidden></progress>
+      <p>Ou un fichier <b>.fwsc</b> téléchargé (une autre version, un autre firmware Felucca / Dinghy) :</p>
+      <label class="btn file" style="width: 100%"><input id="fwFile" type="file" accept=".fwsc,application/octet-stream"><span>Choisir un fichier .fwsc</span><small>extrait du zip téléchargé</small></label>
+      <button class="btn" id="fwInstall" type="button" style="width: 100%; margin-top: 10px" disabled><span>Installer ce fichier</span><small>Web MIDI · environ 1 à 2 minutes</small></button>
     </div>
 
     <p class="foot">Clavier d'ordinateur : <kbd>Espace</kbd> = PLAY (maintenir pour un retour en fondu), une lettre = écouter, <kbd>R</kbd> maintenu = arrêter. Sons synthétisés d'après des références de La Sonothèque, voicebosch et freesound community. Réglages et presets restent dans ce navigateur.</p>
@@ -865,22 +867,37 @@ function bindMidi() {
 }
 
 /* ---------- Compagnon FM-1 : installation d'un firmware (fm1ota.js) ---------- */
+const LATEST = 'https://raw.githubusercontent.com/bananebleue/CDT-Ambiance/fm1-builds/';
 function bindInstaller() {
   const log = $('fwLog'), bar = $('fwBar'), btn = $('fwInstall'), okBox = $('fwOk'), file = $('fwFile');
-  let pkg = null, busy = false;
+  const latestBtn = $('fwLatest'), latestInfo = $('fwLatestInfo');
+  let pkg = null, latest = null, busy = false;
   const write = t => { log.textContent = t; };
-  const ready = () => { btn.disabled = busy || !pkg || !okBox.checked; file.disabled = busy; };
+  const ready = () => {
+    btn.disabled = busy || !pkg || !okBox.checked;
+    latestBtn.disabled = busy || !latest || !okBox.checked;
+    file.disabled = busy;
+  };
   const kb = n => Math.round(n / 1024) + ' Ko';
+  const describe = (raw, name) => {
+    const { product, image } = FM1OTA.loadPackage(raw);
+    const what = /^FM-1_96\d$/.test(product) ? 'Spring’s Sonar' : 'firmware Felucca / Dinghy';
+    return { pkg: { product, image, name }, text: 'Fichier : ' + name + ' (' + kb(raw.length) + ')\nIdentité : ' + product + ' — ' + what + '\nPaquet vérifié (en-tête, liste et contrôles CRC).' };
+  };
+  const when = iso => { try { return new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (e) { return iso; } };
+
+  fetch(LATEST + 'latest.json?t=' + Date.now(), { cache: 'no-store' })
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(j => { latest = j; latestInfo.textContent = 'Spring’s Sonar · ' + j.commit + ' du ' + when(j.date) + (j.message ? ' · ' + j.message : ''); ready(); })
+    .catch(() => { latestInfo.textContent = 'GitHub injoignable (hors connexion ?) : recharge la page'; });
+
   file.addEventListener('change', async () => {
     pkg = null; bar.hidden = true;
     const f = file.files && file.files[0];
     if (!f) { write('Aucun fichier choisi.'); ready(); return; }
     try {
-      const raw = new Uint8Array(await f.arrayBuffer());
-      const { product, image } = FM1OTA.loadPackage(raw);
-      pkg = { product, image, name: f.name };
-      const what = /^FM-1_96\d$/.test(product) ? 'Spring’s Sonar' : 'firmware Felucca / Dinghy';
-      write('Fichier : ' + f.name + ' (' + kb(raw.length) + ')\nIdentité : ' + product + ' — ' + what + '\nPaquet vérifié (en-tête, liste et contrôles CRC).');
+      const d = describe(new Uint8Array(await f.arrayBuffer()), f.name);
+      pkg = d.pkg; write(d.text);
     } catch (e) {
       write('Fichier refusé : ' + (e instanceof FM1OTA.InstallError ? e.message : 'illisible (' + e + ')'));
     }
@@ -888,8 +905,9 @@ function bindInstaller() {
   });
   okBox.addEventListener('change', ready);
   const guard = e => { e.preventDefault(); e.returnValue = ''; };
-  btn.addEventListener('click', async () => {
-    if (!pkg || busy) return;
+
+  async function install(getPkg) {
+    if (busy) return;
     if (!navigator.requestMIDIAccess) { write('Web MIDI n’est pas disponible dans ce navigateur : utilise Chrome ou Edge.'); return; }
     let access;
     try { access = await navigator.requestMIDIAccess({ sysex: true }); }
@@ -898,22 +916,24 @@ function bindInstaller() {
     let lock = null;
     try { if ('wakeLock' in navigator) lock = await navigator.wakeLock.request('screen'); } catch (e) { /* facultatif */ }
     window.addEventListener('beforeunload', guard);
-    const head = 'Fichier : ' + pkg.name + ' → ' + pkg.product + '\n';
+    let head = '';
     try {
+      const p = await getPkg(t => write(t));
+      head = p.text + '\n\n';
       write(head + 'Recherche du FM-1…');
       const up = new FM1OTA.Updater(access);
       const dev = await up.find();
       if (!dev) {
-        const names = [...access.inputs.values()].map(p => p.name).join(', ') || 'aucun';
+        const names = [...access.inputs.values()].map(q => q.name).join(', ') || 'aucun';
         throw new FM1OTA.InstallError('notfound', 'FM-1 introuvable. Vérifie le câble (données), que le FM-1 est allumé et qu’aucun autre logiciel ne l’utilise.\nPorts MIDI vus : ' + names);
       }
-      const resume = dev.id.loader ? '\nLe FM-1 est resté en mode mise à jour : on termine l’écriture.' : '';
-      if (!window.confirm('Installer ' + pkg.product + ' sur le FM-1 (actuellement ' + dev.id.text + ') ?\n\nCe qui est enregistré dans le FM-1 sera effacé. Ne débranche rien pendant l’écriture.')) {
+      const resume = dev.id.loader ? '\nLe FM-1 était resté en mode mise à jour : on termine l’écriture.' : '';
+      if (!window.confirm('Installer ' + p.pkg.product + ' sur le FM-1 (actuellement ' + dev.id.text + ') ?\n\nCe qui est enregistré dans le FM-1 sera effacé. Ne débranche rien pendant l’écriture.')) {
         dev.link.close(); write(head + 'Installation annulée.'); return;
       }
       const lines = ['FM-1 trouvé : ' + dev.id.text + ' (port « ' + dev.name + ' »)' + resume];
       const show = extra => write(head + lines.join('\n') + (extra ? '\n' + extra : ''));
-      await up.install(dev, pkg.image, pkg.product, (k, a) => {
+      await up.install(dev, p.pkg.image, p.pkg.product, (k, a) => {
         if (k === 'start') { lines.push('1/3 Vérification du paquet par le FM-1…'); show(); }
         else if (k === 'check') show('lectures : ' + a);
         else if (k === 'loader') { lines.push('Passage en mode mise à jour (le port USB change de nom)…'); show(); }
@@ -926,13 +946,28 @@ function bindInstaller() {
       });
     } catch (e) {
       const msg = e instanceof FM1OTA.InstallError ? e.message : 'erreur inattendue (' + (e && e.message ? e.message : e) + ')';
-      write(log.textContent + '\n\nÉchec : ' + msg + '\nEn dernier recours : maintiens OCT− en allumant le FM-1 (secours USB), puis réinstalle.');
+      write(log.textContent + '\n\nÉchec : ' + msg + '\nSi le FM-1 ne démarre plus : maintiens OCT− en l’allumant (secours USB), puis réinstalle.');
     } finally {
       window.removeEventListener('beforeunload', guard);
       if (lock) lock.release().catch(() => {});
       busy = false; ready();
     }
-  });
+  }
+
+  btn.addEventListener('click', () => { if (pkg) install(async () => ({ pkg, text: log.textContent })); });
+  latestBtn.addEventListener('click', () => { if (latest) install(async say => {
+    say('Téléchargement de Spring’s Sonar ' + latest.commit + ' depuis GitHub…');
+    const r = await fetch(LATEST + latest.file + '?c=' + latest.commit, { cache: 'no-store' });
+    if (!r.ok) throw new FM1OTA.InstallError('download', 'téléchargement impossible (HTTP ' + r.status + ').');
+    const raw = new Uint8Array(await r.arrayBuffer());
+    if (raw.length !== latest.size) throw new FM1OTA.InstallError('download', 'fichier incomplet (' + raw.length + ' octets sur ' + latest.size + ') : réessaie dans quelques minutes.');
+    if (crypto.subtle) {
+      const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', raw))].map(x => x.toString(16).padStart(2, '0')).join('');
+      if (h !== latest.sha256) throw new FM1OTA.InstallError('download', 'empreinte SHA-256 différente : GitHub publie peut-être une nouvelle version, recharge la page dans quelques minutes.');
+    }
+    const d = describe(raw, latest.file + ' (' + latest.commit + ', GitHub)');
+    return d;
+  }); });
 }
 
 /* ---------- Démarrage ---------- */
