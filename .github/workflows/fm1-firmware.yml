@@ -90,6 +90,38 @@ jobs:
             fm1/build/tests/*.png
             fm1/build/tests/*.wav
 
+      # CDT Compagnon installe « la dernière version » depuis la branche fm1-builds (un seul commit, remplacé à
+      # chaque compilation de la branche firmware ou d'une étiquette) : latest.json + spring-sonar.fwsc, lus par
+      # la page sur raw.githubusercontent.com.
+      - name: Dernière version pour CDT Compagnon (branche fm1-builds)
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/firmware' || github.ref_type == 'tag')
+        run: |
+          pub="$RUNNER_TEMP/fm1-builds"
+          mkdir -p "$pub"
+          cp "$(ls build/spring-sonar*.fwsc | head -1)" "$pub/spring-sonar.fwsc"
+          python3 - "$pub" <<'PY'
+          import hashlib, json, os, sys, datetime
+          d = sys.argv[1]
+          raw = open(os.path.join(d, "spring-sonar.fwsc"), "rb").read()
+          json.dump({"file": "spring-sonar.fwsc", "product": "FM-1_960", "size": len(raw),
+                     "sha256": hashlib.sha256(raw).hexdigest(),
+                     "commit": os.environ["GITHUB_SHA"][:7], "ref": os.environ["GITHUB_REF_NAME"],
+                     "message": os.environ.get("MSG", "").splitlines()[0][:120] if os.environ.get("MSG") else "",
+                     "date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                     "run": os.environ["GITHUB_SERVER_URL"] + "/" + os.environ["GITHUB_REPOSITORY"] + "/actions/runs/" + os.environ["GITHUB_RUN_ID"]},
+                    open(os.path.join(d, "latest.json"), "w"), ensure_ascii=False, indent=1)
+          PY
+          cat "$pub/latest.json"
+          cd "$pub"
+          git init -q -b fm1-builds
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add latest.json spring-sonar.fwsc
+          git commit -q -m "Spring's Sonar ${GITHUB_SHA::7} (${GITHUB_REF_NAME})"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" fm1-builds
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+
       - name: Publier (étiquettes fm1-v* seulement)
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2

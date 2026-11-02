@@ -60,6 +60,13 @@ int main(int argc, char **argv)
     sn_settings_t s = {3, 5, 120, 70, 30, 1, 0};   /* départ 3 s, fade 5 s, 2 min, volume 70, réverb 30, Coque */
     sn_status_t st;
     uint32_t p0, p1;
+    {                                              /* l'interruption audio tourne déjà avant sn_init (FM-1) */
+        static int32_t early[2 * BLK];
+        uint32_t k, z = 1;
+        for (k = 0; k < 8u; k++) sn_render(early, BLK);
+        for (k = 0; k < 2u * BLK; k++) z &= early[k] == 0;
+        check(z, "avant sn_init : silence, sans planter");
+    }
     sn_init();
     sn_set(&s);
 

@@ -216,15 +216,21 @@ static void sn_apply_type(void)
     sn_type_cur = sn_cfg.type;
 }
 
+/* L'interruption audio démarre avant app_main (platform.c) : tant que sn_init n'a pas fini, elle rend du silence
+ * (les tampons de réverbération ne sont pas encore en place : les lire faisait planter le FM-1 au démarrage). */
+static volatile uint32_t sn_ready;
+
 static void sn_init(void)
 {
     uint32_t i;
+    sn_ready = 0;
     for (i = 0; i < SN_NV; i++) sn_v[i].on = 0;
     sn_rev_init(&sn_rev_main, sn_rev_mem[0], SN_TYPES[1].comb_fb);
     sn_rev_init(&sn_rev_prev, sn_rev_mem[1], SN_TYPES[1].comb_fb);
     sn_rev_init(&sn_rev_gen, sn_rev_mem[2], SN_GEN_COMB_FB);
     sn_phase = SN_READY; sn_muted = 0; sn_cont = 0;
     sn_apply_type();
+    sn_ready = 1;
 }
 
 static void sn_ramp_mute(int32_t target, uint32_t samples)
@@ -347,6 +353,7 @@ static void sn_render(int32_t *out, uint32_t n)
 {
     uint32_t i, j, vol, gen_wet;
     int32_t vol2;
+    if (!sn_ready) return;                         /* avant sn_init : silence (out arrive à zéro) */
     while (sn_q_r != sn_q_w) {                     /* les commandes de la boucle principale */
         uint32_t r = sn_q_r;
         sn_do_cmd(sn_q_cmd[r % SN_QN], sn_q_arg[r % SN_QN]);
