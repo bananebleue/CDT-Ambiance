@@ -117,6 +117,14 @@ button { cursor: pointer; }
 /* Compagnon */
 .companion p { margin: 6px 2px 10px; font-size: 15px; line-height: 1.45; color: var(--brume); max-width: 62ch; }
 .log { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.5; background: var(--abysse); border: 1px solid var(--trait); border-radius: 10px; padding: 10px; margin: 8px 2px 14px; white-space: pre-wrap; word-break: break-word; color: var(--os); min-height: 3em; }
+.companion summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 2px; min-height: 52px; }
+.companion summary::-webkit-details-marker { display: none; }
+.companion summary::after { content: '▾'; color: var(--laiton); font-size: 18px; transition: transform 0.2s; }
+.companion[open] summary::after { transform: rotate(180deg); }
+.sum-title { font-family: var(--f-display); font-size: 14px; letter-spacing: 0.14em; color: var(--laiton); }
+.fmstat { margin-left: auto; font-size: 14px; font-weight: 700; color: var(--brume); text-align: right; }
+.fmstat[data-k="on"] { color: var(--vdg); }
+.fmstat[data-k="other"] { color: var(--laiton); }
 .companion h3 { font-family: var(--f-display); font-size: 15px; letter-spacing: 0.08em; color: var(--laiton); margin: 18px 2px 4px; }
 .companion .file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .companion .file:focus-within { outline: 2px solid var(--laiton); outline-offset: 2px; }
@@ -201,21 +209,13 @@ button { cursor: pointer; }
       </form>
     </div>
 
-    <div class="panel companion">
-      <h2>COMPAGNON FM&#8209;1</h2>
-      <p>Branche le FM-1 en USB-C (câble de données), ouvre cette page dans Chrome ou Edge, sur téléphone ou ordinateur, puis vérifie que l'appareil est vu.</p>
-      <button class="btn" id="midi" type="button" style="width: 100%"><span>Détecter le FM-1</span><small>Web MIDI · demande d'identité</small></button>
-      <div class="log" id="midiLog" role="status">Aucun test lancé.</div>
-      <div id="sonarTools" hidden>
-        <p>Spring's Sonar est installé sur ce FM-1 : envoie-lui l'heure (pour l'heure de fin), ou un nom de preset.</p>
-        <button class="btn" id="syncTime" type="button" style="width: 100%"><span>Synchroniser l'heure</span><small>à refaire après chaque mise sous tension</small></button>
-        <form class="presets" id="nameForm">
-          <div><label for="nameIdx">Preset n°</label><input id="nameIdx" type="number" min="1" max="32" value="1" inputmode="numeric"></div>
-          <div><label for="nameTxt">Nom (sans accents)</label><input id="nameTxt" type="text" maxlength="19" autocomplete="off" value="Spring's Island"></div>
-          <button class="btn full" type="submit"><span>Envoyer le nom</span><small>apparaît sur le FM-1</small></button>
-        </form>
-        <div class="saved" id="sonarSent" role="status"></div>
-      </div>
+    <details class="panel companion" id="companion">
+      <summary><span class="sum-title">COMPAGNON FM&#8209;1</span><span class="fmstat" id="fmStat" data-k="off">FM-1 non branché</span></summary>
+      <p>Branche le FM-1 en USB-C (câble de données), dans Chrome ou Edge, sur téléphone ou ordinateur. La page le reconnaît toute seule et, si Spring's Sonar est installé, lui envoie aussitôt l'heure et les presets de cette page (ils remplacent ceux du FM-1).</p>
+      <div class="log" id="syncLog" role="status">En attente du FM-1…</div>
+      <button class="btn" id="resync" type="button" style="width: 100%" disabled><span>Renvoyer l'heure et les presets</span><small>se fait déjà tout seul au branchement</small></button>
+      <button class="btn" id="midi" type="button" style="width: 100%; margin-top: 10px"><span>Détecter le FM-1</span><small>Web MIDI · diagnostic détaillé</small></button>
+      <div class="log" id="midiLog" role="status">Aucun diagnostic lancé.</div>
 
       <h3>INSTALLER UN FIRMWARE</h3>
       <p>Ferme d'abord les autres pages et logiciels qui utilisent le FM-1 (Firmware Hub, éditeur M-VAVE), et ne débranche rien pendant l'écriture (une à deux minutes). Pour revenir à la V15 officielle : bouton « official V15 » du Firmware Hub.</p>
@@ -226,13 +226,14 @@ button { cursor: pointer; }
       <p>Ou un fichier <b>.fwsc</b> téléchargé (une autre version, un autre firmware Felucca / Dinghy) :</p>
       <label class="btn file" style="width: 100%"><input id="fwFile" type="file" accept=".fwsc,application/octet-stream"><span>Choisir un fichier .fwsc</span><small>extrait du zip téléchargé</small></label>
       <button class="btn" id="fwInstall" type="button" style="width: 100%; margin-top: 10px" disabled><span>Installer ce fichier</span><small>Web MIDI · environ 1 à 2 minutes</small></button>
-    </div>
+    </details>
 
     <p class="foot">Clavier d'ordinateur : <kbd>Espace</kbd> = PLAY (maintenir pour un retour en fondu), une lettre = écouter, <kbd>R</kbd> maintenu = arrêter. Sons synthétisés d'après des références de La Sonothèque, voicebosch et freesound community. Réglages et presets restent dans ce navigateur.</p>
   </section>
 </main>
 
 <script src="fm1ota.js"></script>
+<script src="fm1sync.js"></script>
 <script>
 (() => {
 'use strict';
@@ -634,6 +635,7 @@ function bindPresets() {
     const entry = { name, ...S.settings };
     if (S.current >= 0) S.presets[S.current] = entry; else { S.presets.push(entry); S.current = S.presets.length - 1; }
     persist(); fillPresets(); render();
+    fm1Auto.presetsChanged();
     $('saved').textContent = 'Enregistré dans ' + presetLabel(S.current) + '.';
     setTimeout(() => { $('saved').textContent = ''; }, 2500);
   });
@@ -809,6 +811,7 @@ function bindMidi() {
     let access;
     try { access = await navigator.requestMIDIAccess({ sysex: true }); }
     catch (e) { write('Accès MIDI refusé (' + (e && e.name ? e.name : 'erreur') + '). Ouvre la page directement dans Chrome et autorise l’accès aux appareils MIDI.'); return; }
+    if (window.FM1_BUSY) { write('Installation en cours : réessaie après.'); return; }
     const ins = [...access.inputs.values()], outs = [...access.outputs.values()];
     if (!ins.length && !outs.length) { write('Aucun appareil MIDI vu. Vérifie le câble USB-C (il doit transporter les données) et que le FM-1 est allumé.'); return; }
     const text = 'Entrées : ' + (ins.map(p => p.name).join(', ') || 'aucune') + '\nSorties : ' + (outs.map(p => p.name).join(', ') || 'aucune') + '\n';
@@ -848,32 +851,97 @@ function bindMidi() {
     out += replies.length ? 'Réponses brutes :\n' + replies.join('\n') + '\n' : 'Aucune réponse aux demandes d’identité.\n';
     out += 'Diagnostic : ' + received + ' message(s) reçu(s), dont ' + sysexCount + ' SysEx.\n' + ports;
     write(out);
-    // Spring's Sonar (identité FM-1_96x) : l'heure et les noms de presets, en contrôleurs MIDI sur le canal 16
-    const isSonar = idents.some(id => /^FM-?1_96\d$/.test(id));
-    $('sonarTools').hidden = !isSonar;
-    sonarOuts = isSonar ? outs : [];
-  });
-  let sonarOuts = [];
-  const cc = (n, v) => sonarOuts.forEach(p => { try { p.send([0xBF, n, v & 0x7F]); } catch (e) { /* port fermé */ } });
-  const sent = t => { $('sonarSent').textContent = t; setTimeout(() => { $('sonarSent').textContent = ''; }, 3000); };
-  $('syncTime').addEventListener('click', () => {
-    if (!sonarOuts.length) return;
-    const d = new Date(Date.now() + 500);
-    cc(102, d.getHours()); cc(103, d.getMinutes()); cc(104, d.getSeconds()); cc(105, 0);
-    sent('Heure envoyée : ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '.');
-  });
-  $('nameForm').addEventListener('submit', e => {
-    e.preventDefault();
-    if (!sonarOuts.length) return;
-    const idx = Math.max(1, Math.min(32, parseInt($('nameIdx').value, 10) || 1));
-    const name = ($('nameTxt').value || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7E]/g, '').slice(0, 19).trim();
-    if (!name) return;
-    cc(110, idx - 1);
-    for (const ch of name) cc(111, ch.charCodeAt(0));
-    cc(112, 0);
-    sent('Nom envoyé au preset P' + idx + ' : ' + name + '.');
+    if (!fm1Auto.attach(access) && idents.length) fm1Auto.probe('diagnostic');
   });
 }
+
+/* ---------- Compagnon FM-1 : reconnaissance au branchement, heure et presets envoyés tout seuls ---------- */
+const fm1Auto = (() => {
+  let access = null, timer = 0, running = false, again = false, connected = null, presetTimer = 0;
+  const stat = (t, k) => { $('fmStat').textContent = t; $('fmStat').dataset.k = k; };
+  const slog = t => { $('syncLog').textContent = t; };
+  const hhmmss = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const isSonar = id => /^FM-?1_96\d$/.test(id);
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  // le FM-1 lit 64 messages d'avance : par paquets de 16, avec une pause
+  async function sendAll(out, msgs) {
+    for (let i = 0; i < msgs.length; i += 16) {
+      for (const [c, v] of msgs.slice(i, i + 16)) out.send([0xBF, c, v]);
+      await wait(25);
+    }
+  }
+  async function sync(link, why) {
+    const out = link.output;
+    const d = new Date(Date.now() + 300);
+    await sendAll(out, FM1Sync.timeMessages(d));
+    const list = S.presets.slice(0, FM1Sync.MAX_PRESETS);
+    await sendAll(out, FM1Sync.presetMessages(list));
+    slog('Spring’s Sonar (' + connected + ') : heure ' + hhmmss(d) + ' et ' + list.length + ' preset' + (list.length > 1 ? 's' : '') + ' envoyés' + (why ? ' (' + why + ')' : '') + '.'
+      + (S.presets.length > FM1Sync.MAX_PRESETS ? '\nLe FM-1 garde 32 presets au plus : les suivants restent sur la page.' : ''));
+    stat('Spring’s Sonar · synchronisé ' + hhmmss(new Date()).slice(0, 5), 'on');
+  }
+  let tries = 0;
+  async function probe(why) {
+    if (!access || window.FM1_BUSY) return;
+    if (running) { again = true; return; }
+    running = true;
+    try {
+      const up = new FM1OTA.Updater(access);
+      const dev = await up.find(id => !id.loader);
+      if (!dev) {
+        connected = null; $('resync').disabled = true;
+        if (up.candidates().length && tries < 3) {          // un port du FM-1 est là, mais il démarre encore
+          tries++; stat('FM-1 : connexion…', 'off'); setTimeout(() => probe(why), 2000);
+        } else {
+          tries = 0;
+          stat('FM-1 non branché', 'off');
+          slog(up.candidates().length ? 'Un port MIDI du FM-1 est vu, mais il ne répond pas : débranche et rebranche-le, ou ferme les autres logiciels qui l’utilisent.' : 'En attente du FM-1…');
+        }
+      } else {
+        tries = 0;
+        connected = dev.id.text;
+        if (isSonar(dev.id.text)) { $('resync').disabled = false; await sync(dev.link, why); }
+        else { $('resync').disabled = true; stat('FM-1 · ' + dev.id.text, 'other'); slog('FM-1 branché, avec un autre firmware (' + dev.id.text + ') : rien à envoyer. Installe Spring’s Sonar ci-dessous.'); }
+        dev.link.close();
+      }
+    } catch (e) {
+      slog('Échange avec le FM-1 impossible (' + (e && e.message ? e.message : e) + ').');
+    } finally {
+      running = false;
+      if (again) { again = false; setTimeout(() => probe(why), 300); }
+    }
+  }
+  function attach(a) {
+    if (access) return false;        // déjà à l'écoute
+    access = a;
+    // Branché, débranché : les ports changent ; on attend que tout soit arrivé (Android ouvre lentement)
+    access.addEventListener('statechange', e => {
+      if (window.FM1_BUSY) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => probe(e.port && e.port.state === 'connected' ? 'branchement' : ''), 900);
+    });
+    probe('');
+    return true;
+  }
+  async function start() {
+    if (!navigator.requestMIDIAccess) { slog('Web MIDI n’est pas disponible dans ce navigateur : utilise Chrome ou Edge.'); return; }
+    let state = 'prompt';
+    try { state = (await navigator.permissions.query({ name: 'midi', sysex: true })).state; } catch (e) { /* pas d'API permissions */ }
+    if (state === 'granted') {
+      try { attach(await navigator.requestMIDIAccess({ sysex: true })); } catch (e) { /* refusé */ }
+    } else {
+      slog('Pour que la page reconnaisse le FM-1 toute seule, autorise une fois l’accès MIDI : bouton « Détecter le FM-1 » ci-dessous.');
+    }
+  }
+  $('resync').addEventListener('click', () => probe('à la demande'));
+  return {
+    start, attach, probe,
+    presetsChanged() {           // un preset enregistré sur la page : renvoyé au FM-1 s'il est branché
+      if (!connected || !isSonar(connected)) return;
+      clearTimeout(presetTimer); presetTimer = setTimeout(() => probe('presets modifiés'), 800);
+    }
+  };
+})();
 
 /* ---------- Compagnon FM-1 : installation d'un firmware (fm1ota.js) ---------- */
 const LATEST = 'https://raw.githubusercontent.com/bananebleue/CDT-Ambiance/fm1-builds/';
@@ -921,7 +989,7 @@ function bindInstaller() {
     let access;
     try { access = await navigator.requestMIDIAccess({ sysex: true }); }
     catch (e) { write('Accès MIDI refusé : autorise l’accès aux appareils MIDI pour cette page, puis recommence.'); return; }
-    busy = true; ready(); bar.hidden = true; bar.value = 0;
+    busy = true; window.FM1_BUSY = true; ready(); bar.hidden = true; bar.value = 0;
     let lock = null;
     try { if ('wakeLock' in navigator) lock = await navigator.wakeLock.request('screen'); } catch (e) { /* facultatif */ }
     window.addEventListener('beforeunload', guard);
@@ -951,7 +1019,7 @@ function bindInstaller() {
           bar.value = a; show('écriture : ' + a + ' %');
         }
         else if (k === 'reboot') { lines.push('3/3 Redémarrage du FM-1…'); show(); }
-        else if (k === 'done') { lines.push('Terminé : le FM-1 répond ' + a + '.'); show(/^FM-?1_96\d$/.test(a) ? 'Clique sur « Détecter le FM-1 » pour lui envoyer l’heure.' : ''); }
+        else if (k === 'done') { lines.push('Terminé : le FM-1 répond ' + a + '.'); show(/^FM-?1_96\d$/.test(a) ? 'L’heure et les presets vont lui être envoyés.' : ''); }
       });
     } catch (e) {
       const msg = e instanceof FM1OTA.InstallError ? e.message : 'erreur inattendue (' + (e && e.message ? e.message : e) + ')';
@@ -959,7 +1027,8 @@ function bindInstaller() {
     } finally {
       window.removeEventListener('beforeunload', guard);
       if (lock) lock.release().catch(() => {});
-      busy = false; ready();
+      busy = false; window.FM1_BUSY = false; ready();
+      setTimeout(() => fm1Auto.probe('après l’installation'), 1500);
     }
   }
 
@@ -983,6 +1052,7 @@ function bindInstaller() {
 load();
 fillPresets();
 bindSteppers(); bindTransport(); bindPresets(); bindMidi(); bindInstaller();
+fm1Auto.start();
 sizeCanvas(); render();
 requestAnimationFrame(frame);
 // Installer la page comme une application (Chrome, Edge ; sur ordinateur et sur Android)
