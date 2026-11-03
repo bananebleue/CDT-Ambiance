@@ -40,6 +40,8 @@ jobs:
           build/tests/sonar_core_test build/tests/sonar_core.wav
           cc -O2 -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Ifirmware/sonar -o build/tests/sonar_ui_host tests/sonar_ui_host.c
           build/tests/sonar_ui_host build/tests/ui tests/sonar_ui_script.txt
+          cc -O2 -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Ifirmware/sonar -o build/tests/sonar_sync_test tests/sonar_sync_test.c
+          build/tests/sonar_sync_test tests/presets_sync_fixture.txt
           python3 - <<'PY'
           from pathlib import Path
           from PIL import Image

@@ -34,18 +34,26 @@ LED : PLAY est verte quand le sonar est prêt (sa seconde LED, celle du firmware
 propre s'allume (baisse un instant à chaque ping) et clignote quand le son est coupé ; REC pulse pendant le sonar ; SAVE
 s'allume quand les réglages diffèrent du preset affiché.
 
-## L'heure et les noms de presets
+## L'heure et les presets
 
-Le FM-1 n'a pas d'horloge sauvegardée : la page CDT Compagnon lui envoie l'heure par USB (contrôleurs MIDI sur le
-canal 16), puis il compte seul. Sans cela, l'écran affiche « heure non synchronisée » et seulement les durées.
+Le FM-1 n'a pas d'horloge sauvegardée. Dès qu'il est branché, CDT Compagnon lui envoie l'heure et ses presets par USB
+(contrôleurs MIDI sur le canal 16), puis il compte seul. Sans heure, l'écran affiche « heure non synchronisée » et
+seulement les durées. Les presets de la page sont la référence : ils remplacent ceux du FM-1 (« Presets reçus : N »),
+d'un bloc et seulement si tout l'envoi est arrivé intact. En jeu, le déroulé en cours ne change pas.
 
 | CC (canal 16) | Valeur |
 | --- | --- |
 | 102, 103, 104 | heure, minute, seconde |
 | 105 | valider l'heure |
-| 110 | numéro du preset à renommer (0 = P1) |
+| 113 | début d'un envoi de presets : leur nombre (1..32) |
+| 110 | numéro du preset (0 = P1) |
 | 111 | un caractère du nom (ASCII 32..126), répété |
-| 112 | valider le nom |
+| 120, 121, 122 | une valeur, 7 bits chacun, poids faible d'abord |
+| 123 | le réglage qui prend cette valeur : 1 départ, 2 fade-in, 3 durée (s), 4 réverb (%), 5 type (0..5), 6 tonalité + 24 |
+| 112 | valider le preset (hors d'un envoi : renommer seulement) |
+| 114 | fin : somme des valeurs de 110, 111 et 120..123, modulo 128 |
+
+La séquence de référence, produite par la page (`fm1sync.js`), est rejouée par `tests/sonar_sync_test.c`.
 
 ## Le son
 

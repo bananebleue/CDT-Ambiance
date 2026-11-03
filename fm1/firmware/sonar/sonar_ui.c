@@ -41,6 +41,10 @@ static uint32_t ui_focus, ui_focus_until, ui_presets_until, ui_saved_until, ui_l
 static int32_t ui_tod_ms;               /* heure du jour en ms à ui_ms = 0 (modulo 24 h) */
 static uint8_t ui_tod_ok;               /* l'heure a été reçue du compagnon */
 static uint8_t ui_tod_h, ui_tod_m, ui_tod_s, ui_name_idx, ui_name_len;
+/* presets envoyés par CDT Compagnon (la page est la référence) : reçus à part, appliqués d'un bloc si tout est arrivé */
+static ui_presets_t ui_rx SN_POOL;
+static uint32_t ui_rx_on, ui_rx_count, ui_rx_seen, ui_rx_val, ui_rx_sum, ui_synced_until;
+static sn_settings_t ui_rx_s;
 static char ui_name_buf[UI_NAME];
 static sn_status_t ui_st;
 
@@ -261,9 +265,30 @@ static void ui_step(const ui_in_t *in)
 
 /* heure et noms depuis le compagnon (CDT Compagnon) : contrôleurs MIDI, canal 16
  *   CC 102 heure, 103 minute, 104 seconde, 105 valider ; CC 110 numéro de preset, 111 un caractère, 112 valider */
+/* MIDI de CDT Compagnon, contrôleurs sur le canal 16 :
+ *   102 h, 103 min, 104 s, 105 valider                       l'heure
+ *   110 n° (0 = P1), 111 un caractère ASCII..., 112 valider  un nom de preset (seul, ou dans un envoi de presets)
+ *   113 nombre                                               début d'un envoi de presets (remplace tous ceux du FM-1)
+ *     pour chacun : 110 n°, 111 caractères, puis par réglage 120 / 121 / 122 (7 bits chacun, poids faible d'abord)
+ *     et 123 n° du réglage (1 départ, 2 fade, 3 durée, 4 réverb, 5 type, 6 tonalité + 24), enfin 112
+ *   114 somme                                                fin : somme des valeurs de 110, 111, 120..123, modulo 128 */
+static void ui_rx_apply(void)
+{
+    uint32_t i;
+    ui_rx.version = UI_VERSION;
+    ui_rx.n = ui_rx_count;
+    ui_pre = ui_rx;
+    for (i = ui_pre.n; i < UI_NPRESET; i++) { ui_pre.p[i].name[0] = 0; ui_pre.p[i].s = UI_DEFAULT; }
+    if (ui_cur > (int32_t)ui_pre.n) ui_cur = (int32_t)ui_pre.n;
+    if (ui_st.phase == SN_READY && ui_cur < (int32_t)ui_pre.n) ui_load_preset(ui_cur);   /* en jeu : le déroulé ne change pas */
+    ui_dirty_p = 1; ui_dirty_s = 1; ui_changed_ms = ui_ms;
+    ui_synced_until = ui_ms + 2500u;
+}
+
 static void ui_midi(uint8_t st, uint8_t d1, uint8_t d2)
 {
     if (st != 0xBFu) return;
+    if (ui_rx_on && ((d1 >= 110u && d1 <= 111u) || (d1 >= 120u && d1 <= 123u))) ui_rx_sum += d2;
     switch (d1) {
     case 102: ui_tod_h = d2 % 24u; break;
     case 103: ui_tod_m = d2 % 60u; break;
@@ -272,11 +297,43 @@ static void ui_midi(uint8_t st, uint8_t d1, uint8_t d2)
         ui_tod_ms = (int32_t)(((uint32_t)ui_tod_h * 3600u + ui_tod_m * 60u + ui_tod_s) * 1000u) - (int32_t)(ui_ms % 86400000u);
         ui_tod_ok = 1;
         break;
-    case 110: ui_name_idx = d2; ui_name_len = 0; break;
+    case 110: ui_name_idx = d2; ui_name_len = 0; ui_rx_s = UI_DEFAULT; break;
     case 111: if (ui_name_len + 1u < UI_NAME && d2 >= 32u && d2 < 127u) ui_name_buf[ui_name_len++] = (char)d2; break;
     case 112:
         ui_name_buf[ui_name_len] = 0;
-        if (ui_name_idx < ui_pre.n && ui_name_len) { ui_copy_name(ui_pre.p[ui_name_idx].name, ui_name_buf); ui_dirty_p = 1; ui_changed_ms = ui_ms; }
+        if (ui_rx_on) {
+            if (ui_name_idx < ui_rx_count && ui_name_len) {
+                ui_copy_name(ui_rx.p[ui_name_idx].name, ui_name_buf);
+                ui_rx.p[ui_name_idx].s = ui_rx_s;
+                ui_rx_seen |= 1u << ui_name_idx;
+            }
+        } else if (ui_name_idx < ui_pre.n && ui_name_len) {
+            ui_copy_name(ui_pre.p[ui_name_idx].name, ui_name_buf); ui_dirty_p = 1; ui_changed_ms = ui_ms;
+        }
+        break;
+    case 113:
+        ui_rx_on = d2 >= 1u && d2 <= UI_NPRESET;
+        ui_rx_count = d2; ui_rx_seen = 0; ui_rx_sum = 0;
+        break;
+    case 120: ui_rx_val = d2; break;
+    case 121: ui_rx_val |= (uint32_t)d2 << 7; break;
+    case 122: ui_rx_val |= (uint32_t)d2 << 14; break;
+    case 123: {
+        uint32_t v = ui_rx_val;
+        switch (d2) {
+        case 1: ui_rx_s.delay_s = v > SN_MAX_SECONDS ? SN_MAX_SECONDS : v; break;
+        case 2: ui_rx_s.fade_s = v > SN_MAX_SECONDS ? SN_MAX_SECONDS : v; break;
+        case 3: ui_rx_s.duration_s = v > SN_MAX_SECONDS ? SN_MAX_SECONDS : v; break;
+        case 4: ui_rx_s.reverb = (uint8_t)(v > 100u ? 100u : v); break;
+        case 5: ui_rx_s.type = (uint8_t)(v < SN_NTYPES ? v : 1u); break;
+        case 6: ui_rx_s.tone = (int8_t)((v > 48u ? 48 : (int32_t)v) - 24); break;
+        }
+        break;
+    }
+    case 114:
+        if (ui_rx_on && (ui_rx_sum & 127u) == d2 && ui_rx_seen == (ui_rx_count >= 32u ? 0xFFFFFFFFu : (1u << ui_rx_count) - 1u))
+            ui_rx_apply();
+        ui_rx_on = 0;
         break;
     }
 }
@@ -617,6 +674,13 @@ static void ui_draw(void)
             if (cut > 0) { ui_copy_name(m.title2, m.title1 + cut + 1); m.title1[cut] = 0; }
         }
         m.sub[0] = 0; ui_cat(m.sub, "SAVE : enregistrer ici"); m.sub_c = C_BRUME;
+    }
+    if ((int32_t)(ui_synced_until - ui_ms) > 0) {
+        char *p;
+        m.sub[0] = 0;
+        p = ui_cat(m.sub, "Presets reçus : ");
+        ui_num(p, ui_pre.n);
+        m.sub_c = C_VDG;
     }
     if ((int32_t)(ui_saved_until - ui_ms) > 0) {
         char *p;
