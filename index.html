@@ -46,6 +46,8 @@ button { cursor: pointer; }
 /* En-tête */
 .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .brand { font-family: var(--f-display); font-weight: 700; font-size: 15px; letter-spacing: 0.14em; color: var(--laiton); margin: 0; }
+.install { font: 700 13px var(--f-body); color: var(--abysse); background: var(--laiton); border: 0; border-radius: 999px; padding: 6px 14px; min-height: 32px; white-space: nowrap; cursor: pointer; }
+.install[hidden] { display: none; }
 .wake { font-size: 13px; font-weight: 600; color: var(--brume); text-align: right; }
 .wake.on { color: var(--vdg); }
 
@@ -137,6 +139,7 @@ button { cursor: pointer; }
   <section class="col-screen" aria-label="Écran du sonar">
     <div class="top">
       <h1 class="brand">CDT COMPAGNON</h1>
+      <button class="install" id="install" type="button" title="Installer CDT Compagnon comme une application" hidden>Installer</button>
       <div class="wake" id="wake">Écran : veille normale</div>
     </div>
     <div class="screen" id="screen">
@@ -982,6 +985,16 @@ fillPresets();
 bindSteppers(); bindTransport(); bindPresets(); bindMidi(); bindInstaller();
 sizeCanvas(); render();
 requestAnimationFrame(frame);
+// Installer la page comme une application (Chrome, Edge ; sur ordinateur et sur Android)
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; $('install').hidden = false; });
+window.addEventListener('appinstalled', () => { installPrompt = null; $('install').hidden = true; });
+$('install').addEventListener('click', async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  try { await installPrompt.userChoice; } catch (e) { /* fenêtre fermée */ }
+  installPrompt = null; $('install').hidden = true;
+});
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => { /* hors-ligne indisponible ici */ });
 }
