@@ -79,13 +79,15 @@ button { cursor: pointer; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-play { grid-column: 1 / -1; min-height: 84px; font-size: 24px; letter-spacing: 0.04em; background: var(--vdg); color: #06201A; border-color: var(--vdg); }
 .btn-play small { color: #0B3A30; }
-.btn-play[data-k="mute"] { background: var(--encre); color: var(--os); border-color: var(--trait); }
-.btn-play[data-k="mute"] small { color: var(--brume); }
+.btn-play[data-k="mute"] { background: #3A1512; color: var(--sang); border-color: var(--sang); }
+.btn-play[data-k="mute"] small { color: #E8A094; }
 .btn-play[data-k="unmute"] { background: var(--os); color: var(--abysse); border-color: var(--os); }
 .btn-play[data-k="unmute"] small { color: #3B4644; }
 .btn-stop { position: relative; overflow: hidden; color: var(--sang); }
 .btn-stop .fill { position: absolute; inset: 0; background: rgba(255, 107, 87, 0.22); transform: scaleX(var(--p, 0)); transform-origin: left; }
 .btn-stop span, .btn-stop small { position: relative; }
+.btn-stop:not([disabled]) { border-color: var(--sang); animation: rec-pulse 1.2s ease-in-out infinite; }
+@keyframes rec-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 87, 0); background-color: var(--encre); } 50% { box-shadow: 0 0 0 4px rgba(255, 107, 87, 0.35); background-color: #3A1512; } }
 
 /* Réglages */
 .panel { background: var(--encre-2); border: 1px solid var(--trait); border-radius: 18px; padding: 6px 14px; }
@@ -127,7 +129,7 @@ button { cursor: pointer; }
   .row .val { grid-column: 1 / -1; grid-row: 2; text-align: left; }
   .row .name { grid-row: 1; }
 }
-@media (prefers-reduced-motion: reduce) { .big { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .big { transition: none; } .btn-stop:not([disabled]) { animation: none; background-color: #3A1512; } }
 </style>
 </head>
 <body>
@@ -151,8 +153,7 @@ button { cursor: pointer; }
       </div>
       <div class="meta">
         <span id="mPreset">P1</span>
-        <span>TYPE <b id="mType">Coque</b></span>
-        <span>REVERB <b id="mRev">30 %</b></span>
+        <span><b id="mType">Coque</b></span>
         <span>TON <b id="mTon">0</b></span>
       </div>
     </div>
@@ -172,19 +173,16 @@ button { cursor: pointer; }
       <div class="row" id="r-fade"><div class="name"><span>Fade-in</span><small>montée du son</small></div><span class="val" id="v-fade">0:20</span>
         <button class="step" type="button" data-p="fade" data-d="-1" aria-label="Réduire le fade-in"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
         <button class="step" type="button" data-p="fade" data-d="1" aria-label="Augmenter le fade-in"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button></div>
+      <div class="row" id="r-reverb"><div class="name"><span>Réverb</span><small>générale, à tout moment</small></div><span class="val" id="v-reverb">30 %</span>
+        <button class="step" type="button" data-p="reverb" data-d="-1" aria-label="Moins de réverb"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+        <button class="step" type="button" data-p="reverb" data-d="1" aria-label="Plus de réverb"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button></div>
       <div class="row" id="r-duration"><div class="name"><span id="n-duration">Durée</span><small id="s-duration">jusqu'au bip continu</small></div><span class="val" id="v-duration">60:00</span>
         <button class="step" type="button" data-p="duration" data-d="-1" aria-label="Retirer du temps"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
         <button class="step" type="button" data-p="duration" data-d="1" aria-label="Ajouter du temps"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button></div>
-      <div class="row" id="r-volume"><div class="name"><span>Volume</span><small>à tout moment</small></div><span class="val" id="v-volume">70 %</span>
-        <button class="step" type="button" data-p="volume" data-d="-1" aria-label="Baisser le volume"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
-        <button class="step" type="button" data-p="volume" data-d="1" aria-label="Monter le volume"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button></div>
       <h2>SON</h2>
       <div class="row type" id="r-type"><div class="name"><span>Type</span><small id="s-type">réverb longue</small></div><span class="val" id="v-type">Coque</span>
         <button class="step" type="button" data-p="type" data-d="-1" aria-label="Type précédent"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
         <button class="step" type="button" data-p="type" data-d="1" aria-label="Type suivant"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>
-      <div class="row" id="r-reverb"><div class="name"><span>Réverb</span><small>générale, par-dessus tout</small></div><span class="val" id="v-reverb">30 %</span>
-        <button class="step" type="button" data-p="reverb" data-d="-1" aria-label="Moins de réverb"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
-        <button class="step" type="button" data-p="reverb" data-d="1" aria-label="Plus de réverb"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button></div>
       <div class="row" id="r-tone"><div class="name"><span>Tonalité</span><small>en demi-tons</small></div><span class="val" id="v-tone">0</span>
         <button class="step" type="button" data-p="tone" data-d="-1" aria-label="Un demi-ton plus bas"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
         <button class="step" type="button" data-p="tone" data-d="1" aria-label="Un demi-ton plus haut"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button></div>
@@ -243,7 +241,7 @@ const TYPES = [
   { name: 'Sonde', desc: 'réverb courte', f0: 1040, partials: [[1, 0]], attack: 0.030, t60: 0.7, rt60: 1.0, wet: -17, click: null, pong: -3 },
   { name: 'Impulsion', desc: 'clic, réverb courte', f0: 1100, partials: [[1, 0]], attack: 0.040, t60: 0.5, rt60: 0.8, wet: -16, click: -8, pong: -3 }
 ];
-const CURVE = { Imax: 8, Imin: 0.25, k: 0.7, Emax: 1.8, ratio: 0.45 };
+const CURVE = { Imax: 7, Imin: 0.25, k: 0.7, Emax: 1.8, ratio: 0.45 };
 const LOOK = 1.5, VOICE = 0.32, CONT = 0.55, DUCK = -7, LONG_PRESS = 0.6;
 const DEFAULT_SETTINGS = { delay: 0, fade: 20, duration: 3600, volume: 70, reverb: 30, tone: 0, type: 1 };
 const STORE = 'cdt-ambiance.sonar.v1';
@@ -342,9 +340,11 @@ function applyType() {
   setWet(A.main, ty); setWet(A.prev, ty);
   S.lastDuckEnd = 0;
 }
+// Le volume se règle avec celui du téléphone ou de l'ordinateur (le MASTER du FM-1) : niveau fixe, comme le firmware.
+const FIXED_VOLUME = 70;
 function applyVolume() {
   if (!A) return;
-  const v = S.settings.volume / 100;
+  const v = FIXED_VOLUME / 100;
   A.master.gain.setTargetAtTime(v * v * 0.95, A.ctx.currentTime, 0.02);
 }
 function applyReverb() {
@@ -511,7 +511,14 @@ function adjust(p, dir) {
     const r = S.sonarEnd - now;
     if (r <= 0 && dir < 0) return;
     const nr = r <= 0 ? 60 : stepValue('duration', dir, Math.round(r));
+    // Temps ajouté : le rythme du moment reste le même, seule la rampe jusqu'au bip continu s'allonge
+    // (on garde la part restante r / T). Temps retiré : le rythme s'accélère tout de suite.
+    if (S.phase === 'sonar' && r > 0 && nr > r) S.T = Math.max(S.T, nr * S.T / r);
     S.sonarEnd = now + nr;
+    if (S.phase === 'sonar' && nr > 0 && nr < r) {
+      const I = intervalAt(nr);
+      if (S.nextPing - now > I) S.nextPing = now + I;
+    }
     if (S.cont && S.cont.t > now) stopCont(now);
   } else {
     S.settings[p] = stepValue(p, dir, S.settings[p]);
@@ -674,9 +681,8 @@ function render() {
   setText('hdrName', name);
   setText('mPreset', S.current >= 0 ? 'P' + (S.current + 1) : 'P+');
   setText('mType', TYPES[s.type].name);
-  setText('mRev', s.reverb + ' %');
   setText('mTon', valueText('tone'));
-  ['delay', 'fade', 'duration', 'volume', 'reverb', 'tone', 'type'].forEach(p => setText('v-' + p, valueText(p)));
+  ['delay', 'fade', 'reverb', 'duration', 'tone', 'type'].forEach(p => setText('v-' + p, valueText(p)));
   setText('s-type', TYPES[s.type].desc);
   setText('n-duration', ph === 'ready' ? 'Durée' : '± Temps');
   setText('s-duration', ph === 'ready' ? 'jusqu’au bip continu' : 'ajouter ou retirer en jeu');
