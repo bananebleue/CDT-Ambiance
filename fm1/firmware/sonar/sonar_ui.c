@@ -226,12 +226,13 @@ static void ui_step(const ui_in_t *in)
     /* une touche du clavier : écouter (avant le départ, ou quand le son est coupé) */
     if (in->keys_pressed && ui_preview_ok()) { sn_cmd(SN_CMD_PREVIEW, 0); ui_preview_ms = ui_ms; }
 
-    /* LED (une seule couleur par bouton : éteinte, lueur ou allumée)
-     *   PLAY : lueur au repos (prêt), allumée pendant le sonar (baisse un instant à chaque ping), clignote son coupé
+    /* LED (éteinte, lueur ou allumée ; PLAY a en plus une LED verte)
+     *   PLAY : verte au repos (prêt) ; en jeu, sa LED propre allumée (baisse un instant à chaque ping), clignote son coupé
      *   REC  : pulse pendant le sonar (allumée / lueur), allumée tant qu'elle est tenue
      *   OCT selon la tonalité, SAVE quand les réglages diffèrent du preset affiché */
     if (ui_st.pings != ui_last_ping) { ui_last_ping = ui_st.pings; ui_ping_ms = ui_ms; }
-    if (ui_st.phase == SN_READY) ui_hw_led(UI_BTN_PLAY, 1);
+    ui_hw_led(UI_LED_PLAY_GREEN, ui_st.phase == SN_READY ? 2 : 0);
+    if (ui_st.phase == SN_READY) ui_hw_led(UI_BTN_PLAY, 0);
     else if (ui_st.muted) ui_hw_led(UI_BTN_PLAY, (ui_ms / 500u) & 1u ? 0 : 2);
     else ui_hw_led(UI_BTN_PLAY, ui_ms - ui_ping_ms > 90u ? 2 : 1);
     if (in->held & (1u << UI_BTN_REC)) ui_hw_led(UI_BTN_REC, 2);

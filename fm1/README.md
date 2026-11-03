@@ -30,9 +30,9 @@ chose que la page web [CDT Compagnon](https://bananebleue.github.io/CDT-Ambiance
 Les valeurs ne descendent jamais sous zéro et n'ont pas de butée haute (12 h au plus). Les réglages et les presets
 sont gardés en mémoire flash. Les pings s'espacent de 7 s au plus, 0,25 s à la fin.
 
-Les LED des boutons n'ont qu'une couleur : PLAY luit faiblement quand le sonar est prêt, s'allume pendant le sonar
-(baisse un instant à chaque ping) et clignote quand le son est coupé ; REC pulse pendant le sonar ; SAVE s'allume
-quand les réglages diffèrent du preset affiché.
+LED : PLAY est verte quand le sonar est prêt (sa seconde LED, celle du firmware d'origine) ; pendant le sonar, sa LED
+propre s'allume (baisse un instant à chaque ping) et clignote quand le son est coupé ; REC pulse pendant le sonar ; SAVE
+s'allume quand les réglages diffèrent du preset affiché.
 
 ## L'heure et les noms de presets
 

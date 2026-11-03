@@ -34,7 +34,20 @@ static void ui_hw_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t 
     for (i = 0; i < n; i++) px[i] = swap16(px[i]);    /* l'écran prend le RGB565 octets inversés */
     lcd_blit(x, y, w, h, px);
 }
-static void ui_hw_led(uint32_t btn, int level) { fm1_led_key(btn, level == 2); fm1_led_key_glow(btn, level == 1); }
+/* la LED verte de PLAY n'est pas dans la grille des touches : colonne 8, ligne de LED PA9 (bit 1), comme le trouve
+ * Felucca (firmware/src/ui_input.c, LED_PLAY_GREEN) ; c'est elle que le firmware d'origine allume */
+#define LED_GREEN_COL 8u
+#define LED_GREEN_BIT (1u << 1)
+static void ui_hw_led(uint32_t btn, int level)
+{
+    if (btn == UI_LED_PLAY_GREEN) {
+        if (level == 2) fm1_led[LED_GREEN_COL] |= LED_GREEN_BIT; else fm1_led[LED_GREEN_COL] &= (uint8_t)~LED_GREEN_BIT;
+        if (level == 1) fm1_led_dim[LED_GREEN_COL] |= LED_GREEN_BIT; else fm1_led_dim[LED_GREEN_COL] &= (uint8_t)~LED_GREEN_BIT;
+        return;
+    }
+    fm1_led_key(btn, level == 2);
+    fm1_led_key_glow(btn, level == 1);
+}
 static int ui_hw_load(uint32_t which, void *p, uint32_t n) { return which ? blob_load(0, p, n) : settings_load(p, n); }
 static int ui_hw_save(uint32_t which, const void *p, uint32_t n) { return which ? blob_save(0, p, n) : settings_save(p, n); }
 

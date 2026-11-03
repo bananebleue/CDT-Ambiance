@@ -11,6 +11,7 @@
 /* les numéros du FM-1 (comme la plateforme Dinghy : docs/API.md) */
 enum { UI_ENC_SELECT = 0, UI_ENC_ALGORITHM, UI_ENC_K1, UI_ENC_K2, UI_ENC_K3, UI_ENC_K4, UI_ENC_PRESETS, UI_NENC };
 enum { UI_BTN_OCT_DOWN = 0, UI_BTN_OCT_UP = 1, UI_BTN_SAVE = 9, UI_BTN_PLAY = 12, UI_BTN_REC = 13 };
+#define UI_LED_PLAY_GREEN 31u   /* la seconde LED de PLAY, verte (hors de la grille des touches : spring_sonar.c) */
 
 typedef struct {
     uint32_t ms;                       /* millisecondes depuis la mise sous tension */
