@@ -890,12 +890,12 @@ const fm1Auto = (() => {
       const dev = await up.find(id => !id.loader);
       if (!dev) {
         connected = null; $('resync').disabled = true;
-        if (up.candidates().length && tries < 3) {          // un port du FM-1 est là, mais il démarre encore
+        if (up.named().length && tries < 3) {          // un port du FM-1 est là, mais il démarre encore
           tries++; stat('FM-1 : connexion…', 'off'); setTimeout(() => probe(why), 2000);
         } else {
           tries = 0;
           stat('FM-1 non branché', 'off');
-          slog(up.candidates().length ? 'Un port MIDI du FM-1 est vu, mais il ne répond pas : débranche et rebranche-le, ou ferme les autres logiciels qui l’utilisent.' : 'En attente du FM-1…');
+          slog(up.named().length ? 'Un port MIDI du FM-1 est vu, mais il ne répond pas : débranche et rebranche-le, ou ferme les autres logiciels qui l’utilisent.' : 'En attente du FM-1…');
         }
       } else {
         tries = 0;
@@ -1023,7 +1023,7 @@ function bindInstaller() {
       });
     } catch (e) {
       const msg = e instanceof FM1OTA.InstallError ? e.message : 'erreur inattendue (' + (e && e.message ? e.message : e) + ')';
-      write(log.textContent + '\n\nÉchec : ' + msg + '\nSi le FM-1 ne démarre plus : maintiens OCT− en l’allumant (secours USB), puis réinstalle.');
+      write(log.textContent + '\n\nÉchec : ' + msg + '\nSi le FM-1 ne démarre plus : maintiens OCT− en l’allumant (secours USB des firmwares Felucca et Dinghy), puis réinstalle. Avec un autre firmware, passe par son propre installateur.');
     } finally {
       window.removeEventListener('beforeunload', guard);
       if (lock) lock.release().catch(() => {});

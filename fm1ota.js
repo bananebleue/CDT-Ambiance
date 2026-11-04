@@ -254,8 +254,18 @@ async function handshake(link, tries = 3) {
 class Updater {
   constructor(access) { this.access = access; }
 
-  candidates() {
+  /** les ports dont le nom ressemble à un FM-1 */
+  named() {
     return [...this.access.inputs.values()].filter(p => p.state !== 'disconnected' && PORT_RE.test(p.name || ''));
+  }
+
+  /** les ports à interroger : d'abord ceux au nom de FM-1, puis tous les autres.
+   *  Certains firmwares donnent au port un nom à eux (FM1-Radio : « FIELD ») ; la demande d'identité
+   *  est un SysEx propre au FM-1, qu'un autre appareil ignore. */
+  candidates() {
+    const named = this.named();
+    const others = [...this.access.inputs.values()].filter(p => p.state !== 'disconnected' && !named.includes(p));
+    return named.concat(others);
   }
 
   pairOutput(input) {

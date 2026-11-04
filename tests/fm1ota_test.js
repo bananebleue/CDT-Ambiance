@@ -59,9 +59,10 @@ class FakeFM1 {
     this.other();
     this.boot(this.o.identity, this.o.name);
   }
-  other() {    // un autre appareil MIDI branché : jamais sondé
+  other() {    // un autre appareil MIDI branché : au plus la demande d'identité, quand aucun port n'a un nom de FM-1
     const i = new Port(this, 'input', 'Clavier Arturia', 'x-in'), q = new Port(this, 'output', 'Clavier Arturia', 'x-out');
-    q.send = () => { this.foreign = true; };
+    this.foreignSent = [];
+    q.send = d => { this.foreign = true; this.foreignSent.push(Array.from(d)); };
     this.access.inputs.set(i.id, i); this.access.outputs.set(q.id, q);
   }
   boot(identity, name) {
@@ -145,7 +146,7 @@ async function main() {
   ok(got === 'FM-1_960', 'installation : le FM-1 répond FM-1_960');
   ok(dev.bad === 0 && dev.served === 4 + 7 && dev.upgrades === 2, 'toutes les réponses justes (4 + 7 lectures, 2 démarrages)');
   ok(['start', 'check', 'loader', 'write', 'reboot', 'done'].every(k => steps.includes(k)), 'étapes annoncées dans l’ordre prévu');
-  ok(!dev.foreign, 'l’autre appareil MIDI n’est jamais sondé');
+  ok(dev.foreignSent.every(d => d.join() === O.HS_QUERY.join()), 'l’autre appareil MIDI ne reçoit au plus que la demande d’identité');
 
   // FM-1 déjà en mode mise à jour (installation coupée) : on finit l'écriture
   dev = new FakeFM1(img, { identity: 'ota-FM-1_900', name: 'Felucca Update' });
@@ -162,6 +163,12 @@ async function main() {
   await fails({ stallAfter: 2 }, 'stopped', 'FM-1 muet pendant la vérification');
   await fails({ after: 'FM-1_015' }, 'mismatch', 'autre identité après redémarrage signalée');
   await fails({ badAddr: 0x1F00 }, 'badreq', 'demande hors du paquet refusée');
+
+  // firmware qui donne à son port un nom à lui (FM1-Radio : « FIELD ») : trouvé quand même
+  dev = new FakeFM1(img, { identity: 'FM-1_13010300', name: 'FIELD' });
+  ok(await install(dev, raw) === 'FM-1_960', 'port au nom inconnu (« FIELD ») : trouvé et installé');
+  const hs = O.HS_QUERY.join();
+  ok(dev.foreignSent.every(d => d.join() === hs), 'l’autre appareil MIDI ne reçoit que la demande d’identité');
 
   const d0 = new FakeFM1(img); d0.unplug();
   ok(await new O.Updater(d0.access).find() === null, 'aucun FM-1 : find() rend null');
