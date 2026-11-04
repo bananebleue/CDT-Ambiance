@@ -125,6 +125,7 @@ button { cursor: pointer; }
 .fmstat { margin-left: auto; font-size: 14px; font-weight: 700; color: var(--brume); text-align: right; }
 .fmstat[data-k="on"] { color: var(--vdg); }
 .fmstat[data-k="other"] { color: var(--laiton); }
+a.btn, a.btn:visited { color: var(--os); text-align: center; box-sizing: border-box; }
 .companion h3 { font-family: var(--f-display); font-size: 15px; letter-spacing: 0.08em; color: var(--laiton); margin: 18px 2px 4px; }
 .companion .file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .companion .file:focus-within { outline: 2px solid var(--laiton); outline-offset: 2px; }
@@ -226,6 +227,12 @@ button { cursor: pointer; }
       <p>Ou un fichier <b>.fwsc</b> téléchargé (une autre version, un autre firmware Felucca / Dinghy) :</p>
       <label class="btn file" style="width: 100%"><input id="fwFile" type="file" accept=".fwsc,application/octet-stream"><span>Choisir un fichier .fwsc</span><small>extrait du zip téléchargé</small></label>
       <button class="btn" id="fwInstall" type="button" style="width: 100%; margin-top: 10px" disabled><span>Installer ce fichier</span><small>Web MIDI · environ 1 à 2 minutes</small></button>
+
+      <h3>REVENIR AU FIRMWARE OFFICIEL</h3>
+      <p>M-VAVE ne laisse pas une page web télécharger son firmware à sa place : récupère-le d'un appui, puis donne-le à la page, qui vérifie que c'est bien le fichier officiel non modifié (V16 ou V15) avant de l'installer. Tes presets restent sur cette page, et Spring's Sonar se réinstalle d'un appui.</p>
+      <a class="btn" id="offGet" href="https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc" download="FM-1.fwsc" rel="noopener" style="width: 100%; text-decoration: none"><span>1. Télécharger le firmware officiel</span><small>FM-1.fwsc, la dernière version, chez M-VAVE</small></a>
+      <label class="btn file" style="width: 100%; margin-top: 10px"><input id="offFile" type="file" accept=".fwsc,application/octet-stream"><span>2. Choisir FM-1.fwsc</span><small>dans tes téléchargements</small></label>
+      <button class="btn" id="offInstall" type="button" style="width: 100%; margin-top: 10px" disabled><span>3. Revenir au firmware officiel</span><small>Web MIDI · environ 1 à 2 minutes</small></button>
     </details>
 
     <p class="foot">Clavier d'ordinateur : <kbd>Espace</kbd> = PLAY (maintenir pour un retour en fondu), une lettre = écouter, <kbd>R</kbd> maintenu = arrêter. Sons synthétisés d'après des références de La Sonothèque, voicebosch et freesound community. Réglages et presets restent dans ce navigateur.</p>
@@ -945,21 +952,43 @@ const fm1Auto = (() => {
 
 /* ---------- Compagnon FM-1 : installation d'un firmware (fm1ota.js) ---------- */
 const LATEST = 'https://raw.githubusercontent.com/bananebleue/CDT-Ambiance/fm1-builds/';
+// Les firmwares officiels de M-VAVE que la page accepte, à l'octet près (SHA-256 du fichier FM-1.fwsc)
+const OFFICIAL = {
+  'd017fb65e70aca97ee29d944470c3515a74581df5c0576bf70de917c7b2b61d5': { v: 'V16', product: 'FM-1_016' },   // 21 oct. 2026
+  'db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a': { v: 'V15', product: 'FM-1_015' }    // 30 juil. 2026 (Felucca)
+};
+const sha256hex = async raw => [...new Uint8Array(await crypto.subtle.digest('SHA-256', raw))].map(x => x.toString(16).padStart(2, '0')).join('');
 function bindInstaller() {
   const log = $('fwLog'), bar = $('fwBar'), btn = $('fwInstall'), okBox = $('fwOk'), file = $('fwFile');
   const latestBtn = $('fwLatest'), latestInfo = $('fwLatestInfo');
-  let pkg = null, latest = null, busy = false;
+  let pkg = null, latest = null, busy = false, off = null;
   const write = t => { log.textContent = t; };
   const ready = () => {
+    if ($('offInstall')) $('offInstall').disabled = busy || !$('offFile').files || !$('offFile').files.length || !off;
     btn.disabled = busy || !pkg || !okBox.checked;
     latestBtn.disabled = busy || !latest || !okBox.checked;
     file.disabled = busy;
   };
   const kb = n => Math.round(n / 1024) + ' Ko';
-  const describe = (raw, name) => {
-    const { product, image } = FM1OTA.loadPackage(raw);
-    const what = /^FM-1_96\d$/.test(product) ? 'Spring’s Sonar' : 'firmware Felucca / Dinghy';
-    return { pkg: { product, image, name }, text: 'Fichier : ' + name + ' (' + kb(raw.length) + ')\nIdentité : ' + product + ' — ' + what + '\nPaquet vérifié (en-tête, liste et contrôles CRC).' };
+  const describe = async (raw, name) => {
+    let product, image, what, how = 'Paquet vérifié (en-tête, liste et contrôles CRC).';
+    try {
+      ({ product, image } = FM1OTA.loadPackage(raw));
+      what = /^FM-1_96\d$/.test(product) ? 'Spring’s Sonar' : 'firmware Felucca / Dinghy';
+    } catch (e) {
+      // sans le chargeur Felucca : seulement un firmware officiel de M-VAVE, non modifié
+      const off = e instanceof FM1OTA.InstallError && e.code === 'badpkg' && crypto.subtle ? OFFICIAL[await sha256hex(raw)] : null;
+      if (!off) {
+        let id = ''; try { id = FM1OTA.productOf(raw); } catch (x) { /* illisible */ }
+        if (/^FM-1_0\d\d$/.test(id)) throw new FM1OTA.InstallError('badpkg', 'ce fichier se présente comme le firmware officiel ' + id + ', mais ce n’est pas une version que la page connaît (V15, V16) à l’octet près : il a peut-être été modifié ou abîmé. Retélécharge-le chez M-VAVE, ou installe-le avec leur outil M-UPGRADE.');
+        throw e;
+      }
+      ({ product, image } = FM1OTA.loadPackage(raw, true));
+      if (product !== off.product) throw new FM1OTA.InstallError('badpkg', 'identité inattendue (' + product + ').');
+      what = 'firmware officiel M-VAVE ' + off.v;
+      how = 'Fichier officiel non modifié (empreinte SHA-256 vérifiée), paquet contrôlé.';
+    }
+    return { pkg: { product, image, name }, text: 'Fichier : ' + name + ' (' + kb(raw.length) + ')\nIdentité : ' + product + ' — ' + what + '\n' + how };
   };
   const when = iso => { try { return new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (e) { return iso; } };
 
@@ -973,7 +1002,7 @@ function bindInstaller() {
     const f = file.files && file.files[0];
     if (!f) { write('Aucun fichier choisi.'); ready(); return; }
     try {
-      const d = describe(new Uint8Array(await f.arrayBuffer()), f.name);
+      const d = await describe(new Uint8Array(await f.arrayBuffer()), f.name);
       pkg = d.pkg; write(d.text);
     } catch (e) {
       write('Fichier refusé : ' + (e instanceof FM1OTA.InstallError ? e.message : 'illisible (' + e + ')'));
@@ -1043,9 +1072,25 @@ function bindInstaller() {
       const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', raw))].map(x => x.toString(16).padStart(2, '0')).join('');
       if (h !== latest.sha256) throw new FM1OTA.InstallError('download', 'empreinte SHA-256 différente : GitHub publie peut-être une nouvelle version, recharge la page dans quelques minutes.');
     }
-    const d = describe(raw, latest.file + ' (' + latest.commit + ', GitHub)');
+    const d = await describe(raw, latest.file + ' (' + latest.commit + ', GitHub)');
     return d;
   }); });
+
+  // Revenir au firmware officiel : le fichier de M-VAVE, choisi par l'utilisateur, vérifié à l'octet près
+  $('offFile').addEventListener('change', async () => {
+    off = null; $('offInstall').disabled = true;
+    const f = $('offFile').files && $('offFile').files[0];
+    if (!f) return;
+    try {
+      const d = await describe(new Uint8Array(await f.arrayBuffer()), f.name);
+      if (!/^FM-1_0\d\d$/.test(d.pkg.product)) throw new FM1OTA.InstallError('badpkg', 'ce n’est pas le firmware officiel de M-VAVE (identité ' + d.pkg.product + ') : choisis FM-1.fwsc.');
+      off = d; write(d.text); $('offInstall').disabled = busy;
+    } catch (e) {
+      write('Fichier refusé : ' + (e instanceof FM1OTA.InstallError ? e.message : 'illisible (' + e + ')'));
+    }
+    log.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+  $('offInstall').addEventListener('click', () => { if (off) { log.scrollIntoView({ behavior: 'smooth', block: 'center' }); install(async () => off); } });
 }
 
 /* ---------- Démarrage ---------- */
