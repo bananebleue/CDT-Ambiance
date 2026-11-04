@@ -25,10 +25,16 @@
    `py -3.12 -m pip install mido python-rtmidi`.)
 4. Le FM-1 redémarre sur l'écran du sonar ; « Détecter le FM-1 » doit répondre `FM-1_960`.
 
-## Revenir à la V15
+## Revenir au firmware officiel
 
-Dans le [FM-1 Firmware Hub](https://thefirmwarehub.com) : bouton « official V15 » (ou l'outil M-UPGRADE de M-VAVE avec `FM-1.fwsc`).
-Puis restaurez vos sons et projets.
+Dans [CDT Compagnon](https://bananebleue.github.io/CDT-Ambiance/), section *Revenir au firmware officiel* :
+1. *Télécharger le firmware officiel* : `FM-1.fwsc`, la dernière version, directement chez M-VAVE (V16 depuis le
+   21 octobre 2026). M-VAVE n'autorise pas une page web à le télécharger elle-même, et ce dépôt ne le copie pas.
+2. *Choisir FM-1.fwsc* : la page n'accepte que les fichiers officiels non modifiés (empreinte SHA-256 de la V16 ou
+   de la V15).
+3. *Revenir au firmware officiel* : même installation que pour Spring's Sonar.
+
+Ou le bouton « official V15 » du [FM-1 Firmware Hub](https://thefirmwarehub.com), ou l'outil M-UPGRADE de M-VAVE.
 
 ## Si quelque chose se passe mal
 
