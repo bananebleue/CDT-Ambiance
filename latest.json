@@ -1,0 +1,11 @@
+{
+ "file": "spring-sonar.fwsc",
+ "product": "FM-1_960",
+ "size": 612192,
+ "sha256": "85c3b7514ef49b8ee99e23f602808b799b03994ec417006374ff7b525a14f1dc",
+ "commit": "0a13606",
+ "ref": "firmware",
+ "message": "Mise à jour : accepter le programme de mise à jour officiel de toute version (V16)",
+ "date": "2026-11-04T18:29:58Z",
+ "run": "https://github.com/bananebleue/CDT-Ambiance/actions/runs/41887547894"
+}
