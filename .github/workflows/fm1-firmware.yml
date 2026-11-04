@@ -20,6 +20,8 @@ jobs:
         working-directory: fm1
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -71,6 +73,26 @@ jobs:
           fi
           ls -l build/*.fwsc
           (cd build && sha256sum *.fwsc > SHA256SUMS)
+
+      - name: Mise à jour depuis Spring's Sonar (ota.c) - son propre paquet, et le firmware officiel de M-VAVE
+        run: |
+          cc -O2 -w -o build/tests/ota_test tests/ota_test.c
+          sonar=$(ls build/spring-sonar*.fwsc | head -1)
+          build/tests/ota_test "$sonar"
+          # FM-1.fwsc de M-VAVE : téléchargé pour ce test seulement, jamais publié ni gardé en artefact
+          if curl -sSf -m 120 -o "$RUNNER_TEMP/FM-1.fwsc" https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc; then
+            sha256sum "$RUNNER_TEMP/FM-1.fwsc"
+            build/tests/ota_test "$RUNNER_TEMP/FM-1.fwsc" "$sonar"
+            echo "--- l'ancienne règle (avant le 4 nov.), pour mémoire : elle doit refuser"
+            mkdir -p "$RUNNER_TEMP/old/firmware/src" "$RUNNER_TEMP/old/tests"
+            git show 28e9a3d:fm1/firmware/src/ota.c > "$RUNNER_TEMP/old/firmware/src/ota.c"
+            cp tests/ota_test.c "$RUNNER_TEMP/old/tests/"
+            cc -O2 -w -o "$RUNNER_TEMP/old_ota_test" "$RUNNER_TEMP/old/tests/ota_test.c"
+            "$RUNNER_TEMP/old_ota_test" "$RUNNER_TEMP/FM-1.fwsc" "$sonar" | grep -E "requests|session commits" || true
+            rm -f "$RUNNER_TEMP/FM-1.fwsc"
+          else
+            echo "::warning::FM-1.fwsc de M-VAVE injoignable : test du retour officiel sauté"
+          fi
 
       - name: Écran de plantage → fonctions (tools/crash.txt)
         if: hashFiles('fm1/tools/crash.txt') != ''

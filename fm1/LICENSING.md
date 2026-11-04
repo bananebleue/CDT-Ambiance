@@ -8,6 +8,7 @@ comme la plateforme Dinghy / Felucca / SLOOP sur laquelle il repose.
 | | |
 | --- | --- |
 | Le sonar : `firmware/sonar/` (`sonar_core.*`, `sonar_ui.*`, tables et polices générées), `firmware/src/spring_sonar.c`, `tools/gen_sonar_tables.py`, `tools/gen_sonar_fonts.py`, `tests/sonar_*`, `docs/INSTALLER.md`, les changements de `tools/build.py` et `firmware/src/store.h` | Copyright (C) 2026 Stéphane Faure (CDT Ambiance) |
+| Dans `firmware/src/ota.c` : `ota_boot_valid()` et la règle de l'étape 2 (« tout programme de mise à jour bien formé », pour revenir au firmware officiel V16), repris de [felucca-bsp](https://github.com/hugelton/felucca-bsp) `chip/ota.c` (9670b5d) | Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments, MPL-2.0 ; combiné à ce projet GPL-3.0 comme le permet la MPL 2.0 (§ 3.3) |
 | Polices de l'écran, rendues dans `firmware/sonar/sonar_fonts.h` : Barlow, Barlow Condensed (Jeremy Tribby), Cinzel (Natanael Gama) | SIL OFL 1.1 : `assets/fonts/Barlow-OFL.txt`, `BarlowCondensed-OFL.txt`, `Cinzel-OFL.txt` |
 
 La plateforme, ses auteurs et ses licences, inchangés :

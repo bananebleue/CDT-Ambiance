@@ -162,10 +162,13 @@ static int area_erased(void)
     return 1;
 }
 
+/* Spring's Sonar : un second paquet, facultatif, est le firmware en place (sa zone de démarrage est en flash) ;
+ * le premier est celui qu'on installe, par exemple FM-1.fwsc de M-VAVE depuis Spring's Sonar */
+static uint8_t *dev_logical;
 static void reset_dev(void)
 {
     memset(nor, 0xFF, sizeof nor);
-    memcpy(nor, logical + 0x400, 0x4000);                 /* device flash head = package flash.bin head */
+    memcpy(nor, (dev_logical ? dev_logical : logical) + 0x400, 0x4000);   /* device flash head = package flash.bin head */
     rx_full = 0; requests = 0; ident_replies = 0; committed = 0; last_code = 0;
     mute_after = 0xFFFFFFFFu; corrupt_at = NULL; bad_erase = 0;
 }
@@ -186,6 +189,18 @@ int main(int argc, char **argv)
     for (i = 0; i < 20; i++) memcpy(logical + i * 47, raw + i * 48, 47);   /* drop the marker bytes */
     memcpy(logical + 20 * 47, raw + 20 * 48, n - 20 * 48);
     logical_len = n - 20;
+    if (argc > 2) {                                       /* the firmware in place: another package */
+        uint8_t *r2 = malloc(0x200000);
+        size_t n2;
+        f = fopen(argv[2], "rb");
+        if (!f) { perror(argv[2]); return 2; }
+        n2 = fread(r2, 1, 0x200000, f);
+        fclose(f);
+        dev_logical = malloc(n2);
+        for (i = 0; i < 20; i++) memcpy(dev_logical + i * 47, r2 + i * 48, 47);
+        memcpy(dev_logical + 20 * 47, r2 + 20 * 48, n2 - 20 * 48);
+        printf("  installing %s over the firmware of %s\n", argv[1], argv[2]);
+    }
 
     /* handshake outside a session */
     reset_dev();
@@ -209,7 +224,10 @@ int main(int argc, char **argv)
     rc = ota_session();
     printf("  %u requests\n", requests);
     bad += check("session commits", rc == 0 && committed);
-    bad += check("headers + loader + confirm, no head reads", requests >= 10 && requests <= 30);
+    if (dev_logical)                                      /* another writer: the package's boot area is checked */
+        bad += check("headers + boot area + loader + confirm", requests > 30 && requests <= 120);
+    else
+        bad += check("headers + loader + confirm, no head reads", requests >= 10 && requests <= 30);
     {
         uint8_t *h = nor + T_AREA, *p = committed_parm;
         uint32_t k, zero = 1;
