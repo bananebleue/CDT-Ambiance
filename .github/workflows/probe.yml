@@ -4,15 +4,14 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: M-VAVE FM-1.fwsc (en-têtes, CORS, version, empreinte ; rien n'est publié)
+      - uses: actions/checkout@v4
+        with: { ref: main }
+      - name: Le paquet officiel passe-t-il les contrôles de fm1ota.js ? (rien n'est publié)
         run: |
-          U=https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc
-          echo "== GET avec Origin"; curl -sS -D - -o fw.bin -H "Origin: https://bananebleue.github.io" "$U" | tr -d '\r'
-          echo "== OPTIONS (preflight)"; curl -sS -X OPTIONS -D - -o /dev/null -H "Origin: https://bananebleue.github.io" -H "Access-Control-Request-Method: GET" "$U" | tr -d '\r' | head -20
-          ls -l fw.bin; sha256sum fw.bin
-          python3 - <<'PY'
-          raw = open("fw.bin", "rb").read()
-          ident = "".join(chr((raw[i*0x30+0x2F] - i - 1) & 0xFF) for i in range(20) if raw[i*0x30+0x2F] != 0x7D)
-          print("identité :", ident, "| marqueur Felucca :", b"FELUCCA-LOADER-1" in raw)
-          PY
-          echo "== page produit"; curl -sS -L "https://www.m-vave.com/product?id=fm-1" | grep -oiE '[^"'"'"' ]*\.fwsc[^"'"'"' ]*|V1[0-9][^<]{0,40}' | sort -u | head -20
+          curl -sS -o /tmp/fw.bin https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc
+          node -e "
+          const O=require('./fm1ota.js');const raw=new Uint8Array(require('fs').readFileSync('/tmp/fw.bin'));
+          console.log('identité', O.productOf(raw));
+          try { O.loadPackage(raw); } catch(e) { console.log('sans force :', e.code); }
+          const r=O.loadPackage(raw,true); const d=O.deinterleave(raw);
+          console.log('avec force : OK, image', r.image.length, 'blocs', d.blocks, 'dommage', O.packageDamage(r.image));"
