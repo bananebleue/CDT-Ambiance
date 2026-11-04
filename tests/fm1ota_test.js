@@ -158,6 +158,12 @@ async function main() {
   };
   await fails({ identity: 'SMK-37 Pro_016', name: 'SMK-37 Pro' }, 'model', 'mauvais modèle refusé');
   await fails({ identity: 'ota-FM-1_015', name: 'FM-1 ota' }, 'foreign', 'mode mise à jour d’un autre firmware refusé');
+  {   // mais un retour au firmware officiel interrompu se termine avec le programme de M-VAVE
+    const off = pkg('FM-1_016', { marker: false });
+    const d = new FakeFM1(off.img, { identity: 'ota-FM-1_015', name: 'FM-1 ota', after: 'FM-1_016' });
+    const L2 = O.loadPackage(off.raw, true), up = new O.Updater(d.access), dv = await up.find();
+    ok(await up.install(dv, L2.image, L2.product) === 'FM-1_016', 'retour officiel interrompu : écriture terminée');
+  }
   await fails({ unplugAfter: 2 }, 'lost', 'câble débranché pendant la vérification');
   await fails({ unplugAfter: 7 }, 'lost', 'câble débranché pendant l’écriture');
   await fails({ stallAfter: 2 }, 'stopped', 'FM-1 muet pendant la vérification');

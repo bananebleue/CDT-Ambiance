@@ -375,7 +375,9 @@ class Updater {
       dev.link.close();
       throw new InstallError('model', 'l’appareil est un ' + dev.id.text + ', le paquet est pour ' + product + '.');
     }
-    if (dev.id.loader && !OWN_LOADER_RE.test(dev.id.text)) {
+    // en mode mise à jour d'un autre firmware : seulement pour finir l'installation d'un firmware officiel de M-VAVE
+    // (son propre programme de mise à jour), sinon la disposition de l'image peut différer
+    if (dev.id.loader && !OWN_LOADER_RE.test(dev.id.text) && !/^FM-1_0\d\d$/.test(product)) {
       dev.link.close();
       throw new InstallError('foreign', 'le FM-1 est en mode mise à jour d’un autre firmware (' + dev.id.text
         + ') : termine cette mise à jour avec son propre outil, puis recommence.');
